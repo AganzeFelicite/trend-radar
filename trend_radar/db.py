@@ -91,7 +91,8 @@ def connector_run(source: str, job: str):
         s.commit()
         try:
             yield s, run
-            run.status = "ok"
+            if run.status == "running":  # a job may set its own status, e.g. "waiting"
+                run.status = "ok"
         except Exception as e:
             s.rollback()
             run.status, run.error = "error", repr(e)[:2000]

@@ -58,9 +58,9 @@ Done when: YouTube snapshots land hourly in Postgres on the server.
   - [x] Simulated quota limit stops jobs (test)
   - [x] Simulated 429/5xx retries; 4xx not retried (test)
   - [x] Worker image builds, runs as non-root, migrates on start, exits if `YOUTUBE_API_KEY` missing
-  - [ ] **Real run against the YouTube API**: waiting on the key
+  - [x] Real run against the YouTube API (Nov 3): discover → 97 unique videos for 200 units; snapshot → 97 videos for 2 units
   - [ ] Sub-task: discovery via uploads playlists (1 unit/call): needs the curated GTA channel list
-  - Verified: `uv run pytest` → 5 passed; `docker compose --profile worker run --rm worker` → "YOUTUBE_API_KEY is not set"
+  - Verified: `uv run pytest` → 10 passed; worker with real key: `connector_runs` discover ok (100 results, 200 units), snapshot ok (97, 2 units)
 
 ## Phase 2: More sources + safety basics (Nov 5)
 Done when: three sources land in `signals`, a backup restores, and a push to `main` deploys.
@@ -68,14 +68,15 @@ Done when: three sources land in `signals`, a backup restores, and a push to `ma
 - [ ] **P2.1** Twitch connector (game ID, streams, clips, token refresh)
   - [x] Streams (paged by cursor) + clips in `signals`; same-hour re-run overwrites (test, mocked API)
   - [x] Token cached and reused; 401 → refreshed once; missing category fails the run (tests)
-  - [ ] **Real run**: waiting on the Twitch app (client ID + secret); confirms the category name "Grand Theft Auto VI"
+  - [x] Real run (Nov 3): credentials OK, but Twitch has no "Grand Theft Auto VI" category yet → run records `waiting` (not `error`) and retries hourly
+  - [ ] First real streams/clips once Twitch creates the category
   - Verified: `uv run pytest tests/test_twitch.py` → 3 passed
 - [x] **P2.2** Wikipedia connector (daily, User-Agent; article→topic mapping moves to P3.2 when topics exist)
   - [x] Daily pageviews in `signals`
   - Verified: live API run Nov 3: 6/6 articles found, 30 days each (GTA VI avg 16,835/day, peak 26,444); worker in Docker ran it on start → `connector_runs` status ok, 6 items
 - [ ] **P2.3** YouTube `channels.list` daily job
   - [x] Subscriber counts stored as `channel` items + `subscribers` signals; hidden counts skipped; snapshot ignores channels (test)
-  - [ ] **Real run**: waiting on the YouTube key
+  - [ ] **Real run**: first daily run 06:15 UTC Nov 4
   - Verified: `uv run pytest tests/test_youtube.py` → 6 passed
 - [ ] **P2.4** Backups: nightly `pg_dump` → R2
   - [ ] File in R2
@@ -164,6 +165,6 @@ Done when: the site is public and stable through release day.
 - [ ] **P8.1** Terraform (VPS, firewall, DNS, R2; remote state) + `terraform.yml`
 - [ ] **P8.2** Rebuild drill on staging, timed and documented
 - [ ] **P8.3** Auth.js + Stripe + Pro + per-user alerts
-- [ ] **P8.4** New sources behind flags: Bluesky, RSS, Threads, X, Reddit
+- [ ] **P8.4** New sources behind flags: Bluesky, RSS, Threads, X, Reddit; YouTube comment text; Twitch chat (Nov 3: owner chose YouTube + Twitch only for launch)
 - [ ] **P8.5** "Make this now" list
 - [ ] **P8.6** Upgrade triggers documented (Redis, dbt, partitioning, Dagster, bigger VPS)

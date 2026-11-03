@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 
 import httpx
-import pytest
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -86,11 +85,11 @@ def test_expired_token_is_refreshed_once():
     assert twitch._token["value"] == "t2"
 
 
-def test_missing_category_fails_the_run():
+def test_missing_category_waits_instead_of_failing():
     http, _, _ = fake_twitch(games=())
 
-    with pytest.raises(RuntimeError, match="not found"):
-        twitch.collect(http)
+    twitch.collect(http)
 
     with Session(engine) as s:
-        assert s.scalars(select(ConnectorRun.status)).one() == "error"
+        run = s.scalars(select(ConnectorRun)).one()
+        assert run.status == "waiting" and "does not exist yet" in run.error

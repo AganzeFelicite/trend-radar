@@ -11,6 +11,8 @@ Each connector lives in `trend_radar/connectors/<source>.py`, fetches from **one
 | YouTube | `youtube.snapshot` | hourly at :05 | `views`, `likes`, `comments` for videos < 7 days old | 1 unit / 50 videos | `YOUTUBE_API_KEY` |
 | YouTube | `youtube.channels` | daily 06:15 | `subscribers` (channels stored as `channel` items) | 1 unit / 50 channels | `YOUTUBE_API_KEY` |
 | Twitch | `twitch.collect` | hourly at :10 (+ on start) | `viewers` per `stream`, `views` per `clip` (top 100 clips of last 24h) | ~13 points of 800/min | `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET` |
+
+Twitch had no "Grand Theft Auto VI" category on Nov 3, 2026. Until it exists, `twitch.collect` records status `waiting` (not `error`) and checks again every hour.
 | Wikipedia | `wikipedia.collect` | every 6h (+ on start) | daily `pageviews` per `article`, re-fetches last 30 days | 1 call per article | nothing (descriptive User-Agent) |
 
 The YouTube quota guard stops all YouTube jobs at 9,000 units/day (summed from `connector_runs`, reset at midnight Pacific).

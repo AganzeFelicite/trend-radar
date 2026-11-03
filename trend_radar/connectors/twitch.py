@@ -92,7 +92,10 @@ def collect(http: httpx.Client | None = None) -> None:
     with connector_run(SOURCE, "collect") as (s, run):
         games = GamesResponse.model_validate(_get(s, http, "games", {"name": config.TWITCH_GAME_NAME}))
         if not games.data:
-            raise RuntimeError(f"Twitch category {config.TWITCH_GAME_NAME!r} not found")
+            # Twitch hadn't created the category yet on Nov 3, 2026. Not an error: we check again next hour
+            # and start collecting as soon as it exists.
+            run.status, run.error = "waiting", f"Twitch category {config.TWITCH_GAME_NAME!r} does not exist yet"
+            return
         game_id = games.data[0].id
 
         # Streams come sorted by viewers. ponytail: top TWITCH_MAX_STREAM_PAGES*100 only, raise if release week needs more
