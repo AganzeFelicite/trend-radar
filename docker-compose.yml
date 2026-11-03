@@ -1,0 +1,30 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_DB: trend_radar
+      POSTGRES_USER: trend_radar
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trend_radar}
+    ports:
+      - "127.0.0.1:5432:5432" # localhost only, never public
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trend_radar"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+  worker:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://trend_radar:${POSTGRES_PASSWORD:-trend_radar}@postgres:5432/trend_radar
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles: [worker] # needs YOUTUBE_API_KEY; start with: docker compose --profile worker up -d
+
+volumes:
+  pgdata:
