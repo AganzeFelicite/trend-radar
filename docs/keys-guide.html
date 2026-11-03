@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trend Radar Keys</title>
+<style>
+  :root {
+    --bg: #fafaf9; --surface: #ffffff; --text: #1c1917; --muted: #6b6560; --border: #e7e5e4;
+    --accent: #2563eb; --ok: #15803d; --warn: #b45309; --danger: #b91c1c; --track: #f0eeec; --code: #f5f3f1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f0e0d; --surface: #1a1817; --text: #f5f5f4; --muted: #a8a29e; --border: #2e2a27;
+      --accent: #60a5fa; --ok: #4ade80; --warn: #fbbf24; --danger: #f87171; --track: #2a2725; --code: #23201e;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f0e0d; --surface: #1a1817; --text: #f5f5f4; --muted: #a8a29e; --border: #2e2a27;
+    --accent: #60a5fa; --ok: #4ade80; --warn: #fbbf24; --danger: #f87171; --track: #2a2725; --code: #23201e;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 40px 16px 80px; }
+  h1 { font-size: 1.9rem; line-height: 1.2; margin: 0 0 8px; letter-spacing: -0.02em; }
+  h2 { font-size: 1.05rem; margin: 44px 0 4px; letter-spacing: -0.01em; }
+  .section-note { color: var(--muted); font-size: 0.9rem; margin: 0 0 14px; }
+  p { margin: 0 0 10px; }
+  a { color: var(--accent); }
+  .muted { color: var(--muted); }
+  code { font: 0.85em ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code);
+         padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+
+  .tag { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); }
+  .banner { border: 1px solid var(--danger); border-radius: 12px; padding: 14px 16px; margin: 22px 0 0;
+            background: color-mix(in srgb, var(--danger) 7%, var(--surface)); }
+  .banner b { color: var(--danger); }
+
+  .progress { display: flex; align-items: center; gap: 12px; margin-top: 22px; position: sticky; top: 0;
+              background: var(--bg); padding: 10px 0; z-index: 2; border-bottom: 1px solid var(--border); }
+  .progress .bar { flex: 1; height: 8px; border-radius: 99px; background: var(--track); overflow: hidden; }
+  .progress .fill { height: 100%; background: var(--ok); width: 0; transition: width .3s; }
+  .progress .count { font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  details.key { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; }
+  details.key[open] { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+  details.key.done { opacity: 0.6; }
+  summary { list-style: none; cursor: pointer; padding: 14px 16px; display: grid;
+            grid-template-columns: auto 1fr auto; gap: 4px 12px; align-items: center; }
+  summary::-webkit-details-marker { display: none; }
+  summary input { width: 20px; height: 20px; accent-color: var(--ok); cursor: pointer; margin: 0; }
+  summary .title { font-weight: 600; }
+  summary .why { grid-column: 2 / -1; color: var(--muted); font-size: 0.85rem; }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .badge { font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 99px; border: 1px solid currentColor; white-space: nowrap; }
+  .badge.free { color: var(--ok); } .badge.paid { color: var(--warn); } .badge.time { color: var(--muted); } .badge.slow { color: var(--danger); }
+
+  .body { padding: 0 16px 16px 48px; }
+  .body ol { margin: 0 0 12px; padding-left: 20px; }
+  .body li { margin-bottom: 6px; }
+  .env { background: var(--code); border-radius: 8px; padding: 10px 12px; margin: 10px 0; font-size: 0.85rem; }
+  .env .lbl, .cmd .lbl { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); display: block; margin-bottom: 4px; }
+  .env code, .cmd code { background: none; padding: 0; }
+  .cmd { position: relative; background: var(--code); border-radius: 8px; padding: 10px 12px; margin: 10px 0; }
+  .cmd pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 0.8rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; padding-right: 54px; }
+  .cmd button { position: absolute; top: 8px; right: 8px; font: inherit; font-size: 0.75rem; padding: 3px 9px;
+                border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+  .note { font-size: 0.85rem; color: var(--muted); border-left: 3px solid var(--border); padding-left: 10px; margin: 10px 0 0; }
+  .note.warn { border-color: var(--warn); }
+  @media (max-width: 560px) {
+    summary { grid-template-columns: auto 1fr; }
+    .badges { grid-column: 2; justify-content: flex-start; }
+    .body { padding-left: 16px; }
+  }
+  footer { margin-top: 48px; color: var(--muted); font-size: 0.8rem; }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <div class="tag">Setup guide · Nov 3, 2026</div>
+  <h1>Getting the keys for Trend Radar</h1>
+  <p class="muted">Ordered by urgency. Each key says what it's for, what it costs, the steps, which <code>.env</code> lines it fills, and a command to check it works. Menu labels on these sites change sometimes; if one doesn't match exactly, look for the closest equivalent.</p>
+  <div class="banner">
+    <b>Keys go in <code>.env</code> only.</b> That's the file in the project root, which is gitignored; <code>.env.example</code> lists every name. Never paste keys into chat, a commit or a screenshot. When you're done, tell me "keys are in" and I'll test them without displaying them.
+  </div>
+</header>
+
+<div class="progress" aria-live="polite">
+  <div class="bar"><div class="fill" id="fill"></div></div>
+  <span class="count" id="count">0 / 14 done</span>
+</div>
+
+<!-- ───────────────────────────── A ───────────────────────────── -->
+<h2>A · Do today: free, and starts real data flowing</h2>
+<p class="section-note">YouTube history can't be filled in later, so every hour without the key is data we lose.</p>
+
+<details class="key" data-id="youtube" open>
+  <summary>
+    <input type="checkbox" aria-label="YouTube done">
+    <span class="title">1. YouTube Data API key</span>
+    <span class="badges"><span class="badge free">Free</span><span class="badge time">10 min</span></span>
+    <span class="why">Discovers new GTA 6 videos and snapshots their views every hour. This is our main signal.</span>
+  </summary>
+  <div class="body">
+    <ol>
+      <li>Go to <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener">Google Cloud → New project</a>. Name it <code>trend-radar</code> → <b>Create</b>, then make sure it's selected in the top bar.</li>
+      <li>Open <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener">YouTube Data API v3</a> → <b>Enable</b>.</li>
+      <li>Go to <b>APIs &amp; Services → Credentials → Create credentials → API key</b>.</li>
+      <li>Click the new key → <b>API restrictions → Restrict key</b> → tick only <b>YouTube Data API v3</b> → <b>Save</b>.</li>
+      <li>Leave <b>Application restrictions</b> at None for now. Once the server exists we'll restrict it to the server's IP.</li>
+    </ol>
+    <div class="env"><span class="lbl">.env</span><code>YOUTUBE_API_KEY=AIza…</code></div>
+    <div class="cmd"><span class="lbl">Test (costs 1 of 10,000 daily units)</span><button type="button">Copy</button><pre>set -a; source .env; set +a
+curl -s -H "X-Goog-Api-Key: $YOUTUBE_API_KEY" \
+  "https://www.googleapis.com/youtube/v3/videos?part=statistics&amp;id=dQw4w9WgXcQ" | head -20</pre></div>
+    <p class="note">No billing account is needed; the free quota is 10,000 units a day. A quota increase requires a Google audit that takes weeks, so don't apply now.</p>
+  </div>
+</details>
+
+<details class="key" data-id="twitch">
+  <summary>
+    <input type="checkbox" aria-label="Twitch done">
+    <span class="title">2. Twitch application</span>
+    <span class="badges"><span class="badge free">Free</span><span class="badge time">10 min</span></span>
+    <span class="why">Live viewers on GTA 6 streams and the top clips of the day.</span>
+  </summary>
+  <div class="body">
+    <ol>
+      <li>Log in to Twitch and turn on <b>two-factor authentication</b> (Settings → Security). Twitch won't let you register apps without it.</li>
+      <li>Go to <a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noopener">dev.twitch.tv → Console → Applications</a> → <b>Register Your Application</b>.</li>
+      <li>Fill in: <b>Name</b> <code>trend-radar-&lt;something unique&gt;</code> (it can't contain "Twitch"), <b>OAuth Redirect URL</b> <code>http://localhost</code> (required but unused), <b>Category</b> Analytics Tool, <b>Client Type</b> Confidential → <b>Create</b>.</li>
+      <li>Click <b>Manage</b> → copy the <b>Client ID</b> → click <b>New Secret</b> → copy the secret. It's shown once.</li>
+    </ol>
+    <div class="env"><span class="lbl">.env</span><code>TWITCH_CLIENT_ID=…<br>TWITCH_CLIENT_SECRET=…</code></div>
+    <div class="cmd"><span class="lbl">Test: should print the "Grand Theft Auto VI" category</span><button type="button">Copy</button><pre>set -a; source .env; set +a
+TOKEN=$(curl -s -X POST https://id.twitch.tv/oauth2/token \
+  -d client_id="$TWITCH_CLIENT_ID" -d client_secret="$TWITCH_CLIENT_SECRET" -d grant_type=client_credentials \
+  | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')
+curl -s -H "Client-Id: $TWITCH_CLIENT_ID" -H "Authorization: Bearer $TOKEN" \
+  "https://api.twitch.tv/helix/games?name=Grand%20Theft%20Auto%20VI"</pre></div>
+    <p class="note">No user permissions (scopes) are needed. We only read public streams and clips with an app token.</p>
+  </div>
+</details>
+
+<details class="key" data-id="telegram">
+  <summary>
+    <input type="checkbox" aria-label="Telegram done">
+    <span class="title">3. Telegram bot + public channel</span>
+    <span class="badges"><span class="badge free">Free</span><span class="badge time">10 min</span></span>
+    <span class="why">Spike alerts go to a public channel, and failure alerts come privately to you.</span>
+  </summary>
+  <div class="body">
+    <ol>
+      <li>In Telegram, open <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a> → send <code>/newbot</code> → give it a name, then a username ending in <code>bot</code>. Copy the <b>token</b> it replies with.</li>
+      <li>Create a <b>New Channel</b> → make it <b>Public</b> → choose a link like <code>t.me/your_channel</code>.</li>
+      <li>Channel → <b>Administrators → Add Admin</b> → search your bot → allow only <b>Post messages</b>.</li>
+      <li>For your private ops chat: open your bot, press <b>Start</b>, send it "hi". Then open <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> in your browser and copy the number at <code>"chat":{"id": …}</code>.</li>
+    </ol>
+    <div class="env"><span class="lbl">.env</span><code>TELEGRAM_BOT_TOKEN=123456:ABC…<br>TELEGRAM_CHANNEL_ID=@your_channel<br>TELEGRAM_OPS_CHAT_ID=123456789</code></div>
+    <div class="cmd"><span class="lbl">Test: you should get a message from your bot</span><button type="button">Copy</button><pre>set -a; source .env; set +a
+curl -s "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+  -d chat_id="$TELEGRAM_OPS_CHAT_ID" -d text="Trend Radar test ✅" | head -c 200</pre></div>
+    <p class="note warn">Don't put "GTA" in the channel name, for the same trademark reason as the domain.</p>
+  </div>
+</details>
+
+<!-- ───────────────────────────── B ───────────────────────────── -->
+<h2>B · Submit today: approvals take days or weeks</h2>
+<p class="section-note">These are for sources we add after launch. Applying now means approval might arrive in time.</p>
+
+<details class="key" data-id="reddit">
+  <summary>
+    <input type="checkbox" aria-label="Reddit done">
+    <span class="title">4. Reddit Data API (commercial use)</span>
+    <span class="badges"><span class="badge free">Free to apply</span><span class="badge slow">Slow</span></span>
+    <span class="why">What people are saying in GTA subreddits. Commercial use needs Reddit's approval.</span>
+  </summary>
+  <div class="body">
+    <ol>
+      <li>Read the <a href="https://www.reddit.com/wiki/api/" target="_blank" rel="noopener">Reddit Data API wiki</a>. It links to the current access request process.</li>
+      <li>Open <a href="https://support.reddithelp.com/hc/en-us/requests/new" target="_blank" rel="noopener">Reddit Help → Submit a request</a> and choose the API / developer access option.</li>
+      <li>Describe it plainly: <i>"Read-only access to public posts in GTA-related subreddits. We compute aggregated topic trends for video creators. We don't resell or display raw Reddit content, and we follow your rate limits and data deletion rules."</i> Mention that a paid tier is planned (that's what makes it commercial).</li>
+    </ol>
+    <p class="note">No <code>.env</code> lines yet; they'll be added when the connector is built (P8.4).</p>
+  </div>
+</details>
+
+<details class="key" data-id="trends">
+  <summary>
+    <input type="checkbox" aria-label="Google Trends done">
+    <span class="title">5. Google Trends API (alpha)</span>
+    <span class="badges"><span class="badge free">Free to apply</span><span class="badge slow">Not guaranteed</span></span>
+    <span class="why">Search interest, an extra WATCH signal. Access is by application only.</span>
+  </summary>
+  <div class="body">
+    <ol>
+      <li>Open <a href="https://developers.google.com/search/apis/trends" target="_blank" rel="noopener">Google Trends API</a> → apply for alpha access.</li>
+      <li>Use the same Google account as the YouTube project, and describe the use case the same way as for Reddit.</li>
+    </ol>
+    <p class="note">If it's never granted, nothing breaks; it's optional.</p>
+  </div>
+</details>
+
+<details class="key" data-id="threads">
+  <summary>
+    <input type="checkbox" aria-label="Threads done">
+    <span class="title">6. Threads API (keyword search)</span>
+    <span class="badges"><span class="badge free">Free</span><span class="badge slow">App review</span></span>
+    <span class="why">Posts mentioning GTA 6 on Threads. Keyword search needs Meta's app review.</span>
+  </summary>
+  <div class="body">
+    <ol>
+      <li>Go to <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener">Meta for Developers → My Apps</a> → <b>Create app</b> → pick the use case <b>Access the Threads API</b>.</li>
+      <li>Under permissions, add <code>threads_basic</code> and <code>threads_keyword_search</code>.</li>
+      <li>Create the app today. <b>Submit it for App Review once the site is live</b>, because the review asks for a public privacy policy URL (that comes in P4.5).</li>
+    </ol>
+    <p class="note warn">Check Meta's docs for the current keyword search rate limit before we build this connector.</p>
+  </div>
+</details>
+
+<!-- ───────────────────────────── C ───────────────────────────── -->
+<h2>C · Costs money: needed for the server</h2>
+<p class="section-note">These unblock Phase 1 (P1.1–P1.3). About €5/month plus about $10/year.</p>
+
+<details class="key" data-id="vps">
+  <summary>
+    <input type="checkbox" aria-label="VPS done">
+    <span class="title">7. VPS (Hetzner recommended)</span>
+    <span class="badges"><span class="badge paid">~€5/mo</span><span class="badge time">15 min</span></span>
+    <span class="why">The server that runs everything. Hetzner costs about a quarter of DigitalOcean for the same specs.</span>
+  </summary>
+  <div class="body">
+    <ol>
+      <li>If you don't have an SSH key yet, create one on your Mac: <code>ssh-keygen -t ed25519</code>, then copy it with <code>pbcopy &lt; ~/.ssh/id_ed25519.pub</code>.</li>
+      <li>Sign up at <a href="https://console.hetzner.cloud" target="_blank" rel="noopener">Hetzner Cloud</a> (they verify your identity, sometimes with a small deposit) → <b>New project</b> <code>trend-radar</code>.</li>
+      <li><b>Add Server</b>: <b>Location</b> Ashburn (US East, closest to most creators) or an EU site; <b>Image</b> Ubuntu 24.04; <b>Type</b> the smallest shared x86 plan with <b>4 GB RAM</b> (CX22 or its current equivalent).</li>
+      <li><b>SSH keys</b>: paste your public key. <b>Firewalls</b>: create one allowing inbound TCP <b>22, 80, 443</b> only.</li>
+      <li>Create the server → copy its <b>IPv4 address</b> and send it to me. It's not a secret.</li>
+    </ol>
+    <div class="cmd"><span class="lbl">Test</span><button type="button">Copy</button><pre>ssh root@&lt;SERVER_IP&gt; 'uname -a'</pre></div>
+    <p class="note">Don't install anything on it. Ansible will configure it (P1.2), including turning off root and password login.</p>
+  </div>
+</details>
+
+<details class="key" data-id="domain">
+  <summary>
+    <input type="checkbox" aria-label="Domain done">
+    <span class="title">8. Domain on Cloudflare</span>
+    <span class="badges"><span class="badge paid">~$10/yr</span><span class="badge time">10 min</span></span>
+    <span class="why">The site's address, with DNS and HTTPS. Cloudflare Registrar sells domains at cost.</span>
+  </summary>
+  <div class="body">
+    <ol>
+      <li>Pick a name <b>without "GTA"</b>. Take-Two sends takedowns over trademarks in domains. Something like <code>trendradar.gg</code> or <code>creatorradar.io</code>.</li>
+      <li>Go to <a href="https://dash.cloudflare.com" target="_blank" rel="noopener">Cloudflare dashboard</a> → <b>Domain Registration → Register Domains</b> → buy it. If you already own a domain elsewhere, use <b>Add a domain</b> instead and switch its nameservers to Cloudflare.</li>
+      <li>Once the VPS exists: <b>DNS → Add record</b>: type <code>A</code>, name <code>@</code>, IPv4 = server IP, proxy <b>off (DNS only, grey cloud)</b> so Caddy can get its HTTPS certificate. Add the same record with name <code>www</code>.</li>
+    </ol>
+    <div class="env"><span class="lbl">.env</span><code>DOMAIN=yourdomain.com</code></div>
+    <div class="cmd"><span class="lbl">Test: should print the server IP</span><button type="button">Copy</button><pre>dig +short yourdomain.com</pre></div>
+  </div>
+</details>
+
+<details class="key" data-id="r2">
+  <summary>
+    <input type="checkbox" aria-label="R2 done">
+    <span class="title">9. Cloudflare R2 bucket + access key</span>
+    <span class="badges"><span class="badge free">Free tier</span><span class="badge time">10 min</span></span>
+    <span class="why">Nightly database backups, kept for 14 days. The free tier is 10 GB; a card is required to enable R2.</span>
+  </summary>
+  <div class="body">
+    <ol>
+      <li>Cloudflare dashboard → <b>R2 Object Storage</b> → enable it (asks for a payment method; you won't be charged within the free tier).</li>
+      <li><b>Create bucket</b> → name <code>trend-radar-backups</code> → default location.</li>
+      <li>Bucket → <b>Settings → Object lifecycle rules → Add rule</b>: apply to all objects, <b>delete after 14 days</b>.</li>
+      <li>Back in R2 → <b>Manage API tokens → Create API token</b>: permission <b>Object Read &amp; Write</b>, <b>Specific bucket</b> = <code>trend-radar-backups</code> only → Create.</li>
+      <li>Copy the <b>Access Key ID</b> and <b>Secret Access Key</b> (shown once), plus your <b>Account ID</b> (on the R2 overview page, and in the endpoint URL <code>https://&lt;ACCOUNT_ID&gt;.r2.cloudflarestorage.com</code>).</li>
+    </ol>
+    <div class="env"><span class="lbl">.env</span><code>R2_ACCOUNT_ID=…<br>R2_ACCESS_KEY_ID=…<br>R2_SECRET_ACCESS_KEY=…<br>R2_BACKUP_BUCKET=trend-radar-backups</code></div>
+  </div>
+</details>
+
+<!-- ───────────────────────────── D ───────────────────────────── -->
+<h2>D · Once the domain exists</h2>
+<p class="section-note">Needed in Phases 2, 4 and 5. Resend needs the domain; the rest can be done anytime.</p>
+
+<details class="key" data-id="resend">
+  <summary>
+    <input type="checkbox" aria-label="Resend done">
+    <span class="title">10. Resend (email)</span>
+    <span class="badges"><span class="badge free">Free tier</span><span class="badge time">15 min</span></span>
+    <span class="why">The daily digest email to waitlist subscribers. The free tier covers 3,000 emails a month.</span>
+  </summary>
+  <div class="body">
+    <ol>
+      <li>Sign up at <a href="https://resend.com" target="_blank" rel="noopener">resend.com</a> → <b>Domains → Add domain</b>. Use a subdomain like <code>mail.yourdomain.com</code>, which keeps email reputation separate.</li>
+      <li>Add the DNS records it shows (SPF, DKIM, MX) in Cloudflare. Resend can add them automatically if you connect Cloudflare. Wait for <b>Verified</b>.</li>
+      <li><b>API Keys → Create API key</b>: permission <b>Sending access</b>, domain = your domain only → copy it (shown once).</li>
+    </ol>
+    <div class="env"><span class="lbl">.env</span><code>RESEND_API_KEY=re_…<br>EMAIL_FROM="Trend Radar &lt;digest@mail.yourdomain.com&gt;"</code></div>
+  </div>
+</details>
+
+<details class="key" data-id="sentry">
+  <summary>
+    <input type="checkbox" aria-label="Sentry done">
+    <span class="title">11. Sentry (error tracking)</span>
+    <span class="badges"><span class="badge free">Free</span><span class="badge time">10 min</span></span>
+    <span class="why">Sends you every crash in the worker, API or website, with a stack trace.</span>
+  </summary>
+  <div class="body">
+    <ol>
+      <li>Sign up at <a href="https://sentry.io/signup/" target="_blank" rel="noopener">sentry.io</a> (Developer plan, free).</li>
+      <li>Create three projects: <code>trend-radar-worker</code> (Python), <code>trend-radar-api</code> (FastAPI), <code>trend-radar-web</code> (Next.js).</li>
+      <li>For each: <b>Project Settings → Client Keys (DSN)</b> → copy the DSN.</li>
+    </ol>
+    <div class="env"><span class="lbl">.env</span><code>SENTRY_DSN_WORKER=https://…<br>SENTRY_DSN_API=https://…<br>NEXT_PUBLIC_SENTRY_DSN=https://…</code></div>
+  </div>
+</details>
+
+<details class="key" data-id="healthchecks">
+  <summary>
+    <input type="checkbox" aria-label="Healthchecks done">
+    <span class="title">12. Healthchecks.io (dead worker alarm)</span>
+    <span class="badges"><span class="badge free">Free</span><span class="badge time">5 min</span></span>
+    <span class="why">The worker pings it every run. If the pings stop (crash, server down), you get a Telegram alert.</span>
+  </summary>
+  <div class="body">
+    <ol>
+      <li>Sign up at <a href="https://healthchecks.io" target="_blank" rel="noopener">healthchecks.io</a> → <b>Add Check</b> → name <code>worker</code>, <b>Period</b> 1 hour, <b>Grace</b> 30 minutes.</li>
+      <li>Copy the ping URL (<code>https://hc-ping.com/…</code>).</li>
+      <li><b>Integrations → Telegram</b> → follow the steps to connect your Telegram account.</li>
+    </ol>
+    <div class="env"><span class="lbl">.env</span><code>HEALTHCHECKS_PING_URL=https://hc-ping.com/…</code></div>
+  </div>
+</details>
+
+<details class="key" data-id="ghcr">
+  <summary>
+    <input type="checkbox" aria-label="GitHub token done">
+    <span class="title">13. GitHub token (server pulls images)</span>
+    <span class="badges"><span class="badge free">Free</span><span class="badge time">3 min</span></span>
+    <span class="why">The repo is private, so its Docker images are too. The server needs a read-only token to pull them.</span>
+  </summary>
+  <div class="body">
+    <ol>
+      <li>Go to <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener">GitHub → Settings → Developer settings → Tokens (classic) → Generate new token</a>. The container registry needs a classic token.</li>
+      <li>Note: <code>trend-radar server pull</code>. Expiration: 1 year (set a calendar reminder; deploys break when it expires).</li>
+      <li>Scope: tick <b>only</b> <code>read:packages</code> → Generate → copy.</li>
+    </ol>
+    <div class="env"><span class="lbl">.env</span><code>GHCR_USER=AganzeFelicite<br>GHCR_READ_TOKEN=ghp_…</code></div>
+  </div>
+</details>
+
+<details class="key" data-id="uptime">
+  <summary>
+    <input type="checkbox" aria-label="Uptime monitor done">
+    <span class="title">14. UptimeRobot (site down alarm)</span>
+    <span class="badges"><span class="badge free">Free</span><span class="badge time">5 min</span></span>
+    <span class="why">Checks the site from outside every 5 minutes. A monitor on our own server couldn't report the server itself being down.</span>
+  </summary>
+  <div class="body">
+    <ol>
+      <li><b>Wait until the site is live</b> (after P1.3).</li>
+      <li>Sign up at <a href="https://uptimerobot.com" target="_blank" rel="noopener">uptimerobot.com</a> → <b>New monitor</b> → HTTP(s) → URL <code>https://yourdomain.com/api/health</code> → 5-minute interval.</li>
+      <li>Add your email and Telegram as alert contacts.</li>
+    </ol>
+    <p class="note">No <code>.env</code> lines; it runs outside our system.</p>
+  </div>
+</details>
+
+<h2>After adding keys</h2>
+<div class="cmd"><span class="lbl">Restart the worker so it picks up new keys</span><button type="button">Copy</button><pre>docker compose up -d
+docker compose logs worker | grep -E "disabled|Running job"</pre></div>
+<p class="muted">Any connector still missing its key shows "… disabled". Or tell me "keys are in" and I'll run every test above and report which ones pass.</p>
+
+<footer>Trend Radar · docs/keys-guide.html · Ticked boxes are saved in this browser only.</footer>
+</main>
+
+<script>
+  const KEY = "trend-radar-keys-done";
+  let done = {};
+  try { done = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) {}
+  const items = [...document.querySelectorAll("details.key")];
+
+  function render() {
+    const n = items.filter(d => done[d.dataset.id]).length;
+    document.getElementById("count").textContent = `${n} / ${items.length} done`;
+    document.getElementById("fill").style.width = `${(n / items.length) * 100}%`;
+  }
+
+  items.forEach(d => {
+    const box = d.querySelector("summary input");
+    box.checked = !!done[d.dataset.id];
+    d.classList.toggle("done", box.checked);
+    box.addEventListener("click", e => e.stopPropagation()); // tick without toggling open/closed
+    box.addEventListener("change", () => {
+      done[d.dataset.id] = box.checked;
+      d.classList.toggle("done", box.checked);
+      try { localStorage.setItem(KEY, JSON.stringify(done)); } catch (e) {}
+      render();
+    });
+  });
+
+  document.querySelectorAll(".cmd button").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const text = btn.parentElement.querySelector("pre").innerText;
+      try { await navigator.clipboard.writeText(text); btn.textContent = "Copied"; }
+      catch (e) { btn.textContent = "Select ↓"; }
+      setTimeout(() => (btn.textContent = "Copy"), 1500);
+    });
+  });
+
+  render();
+</script>
+</body>
+</html>
