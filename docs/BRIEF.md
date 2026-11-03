@@ -1,4 +1,4 @@
-# Build Prompt: GTA 6 Trend Radar
+# Build Prompt: GTA 6 Trend Radar (v2, scoped for launch)
 
 You are my coding agent. We are building **GTA 6 Trend Radar**: a website that shows creators, every day, which GTA 6 topics are exploding right now, so they know what videos to make next.
 
@@ -6,293 +6,217 @@ I am a software engineer (Python, React/Next.js, PostgreSQL, Docker on a VPS). I
 
 ---
 
-## 0. How you work: checklists for every task
+## 0. How you work
 
-Before writing any code, create `docs/PLAN.md` in the repo containing every phase and task below, each as a checkbox. Keep it updated as the single source of truth for progress.
+Before writing any code, create `docs/PLAN.md` with every phase and task below as checkboxes. It is the single source of truth for progress.
 
-**Every task gets its own checklist** using this Definition of Done. Copy it under each task in `docs/PLAN.md`:
+**Definition of Done (applies to every task; written once at the top of `docs/PLAN.md`, not copied per task):**
+implemented · tested (or manual test documented) · docs updated if behaviour changed · committed (message references the task, e.g. `P1.5: YouTube snapshot job`) · deployed if it affects the server · verified.
 
-```
-- [ ] Implemented
-- [ ] Tests written and passing (or a manual test documented if tests don't apply)
-- [ ] README / docs updated
-- [ ] Committed and pushed (commit message references the task, e.g. "P2.3: YouTube snapshot job")
-- [ ] Deployed (if the task affects the server)
-- [ ] Verified working — write HOW it was verified (command, URL, query, screenshot)
-```
+Each task in `docs/PLAN.md` keeps only its **task-specific checks** plus one line: `Verified: <command / URL / query / screenshot>`.
 
 Rules:
-- Work on one task at a time, in order. Do not start the next phase until the current phase's "Phase done when" criterion is met.
-- Never tick "Verified working" without actually checking it. If something can't be verified yet, leave it unchecked and say why.
-- At the end of each phase, post a short summary to me: what was done, what was verified, anything blocked, and what's next.
-- If a task turns out bigger than expected, split it into sub-tasks in `docs/PLAN.md`, each with its own checklist.
+- One task at a time, in order. Don't start the next phase until the current phase's "Phase done when" is met. **Exception:** once data collection is running (P1.5), it never waits on anything else.
+- Never tick a check without actually checking it. If it can't be verified yet, leave it unchecked and say why.
+- End of each phase: short summary to me (done, verified, blocked, next).
+- A task bigger than expected gets split into sub-tasks in `docs/PLAN.md`.
 
 ---
 
 ## 1. GitHub repository setup (do this first, using my GitHub CLI)
 
-Use the GitHub CLI (`gh`) that is installed and logged in on my machine.
+1. Run `gh auth status`. If not logged in, stop and ask me to run `gh auth login`. Never ask for or print my token.
+2. Ask me to confirm the repository name (default: `trend-radar`).
+3. `git init`, default branch `main`.
+4. `.gitignore` covering Python, Node/Next.js, `.env*` (except `.env.example`), virtualenvs, build output, OS files. **`.env` must never be committed.**
+5. Minimal `README.md`, `docs/PLAN.md`, and this brief as `docs/BRIEF.md`.
+6. First commit.
+7. `gh repo create <name> --private --source=. --remote=origin --push`
+8. Verify with `gh repo view --json name,visibility,url` that visibility is `PRIVATE`; show me the result.
 
-1. Run `gh auth status`. If I'm not logged in, stop and ask me to run `gh auth login`. Never ask for or print my token.
-2. Ask me to confirm the repository name (default suggestion: `trend-radar`).
-3. Initialise the project locally: `git init`, default branch `main`.
-4. Add a `.gitignore` covering Python, Node/Next.js, `.env` files, virtual environments, build output, and OS files. **`.env` must never be committed.**
-5. Add a minimal `README.md` and `docs/PLAN.md` (with all checklists from section 0).
-6. Make the first commit.
-7. Create the repository as **private** on my account and push:
-   `gh repo create <name> --private --source=. --remote=origin --push`
-8. Verify with `gh repo view --json name,visibility,url` that visibility is `PRIVATE`, and show me the result.
-9. Later, when deployment is ready (Phase 1), set deploy secrets with `gh secret set` (e.g. `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`). Ask me to provide the values interactively; never echo them or write them into files.
-
-### Checklist — Task P0.GH: GitHub repository
-- [ ] `gh auth status` confirmed logged in
-- [ ] Repo name confirmed with me
-- [ ] `.gitignore` excludes `.env` and secrets
-- [ ] `README.md` and `docs/PLAN.md` committed
-- [ ] Private repo created and pushed with `gh repo create --private`
-- [ ] Visibility verified as `PRIVATE` with `gh repo view`
+### P0.GH checks
+- [ ] `gh auth status` logged in  - [ ] Repo name confirmed  - [ ] `.gitignore` excludes `.env`  - [ ] Private repo pushed  - [ ] Visibility verified `PRIVATE`
 
 ---
 
 ## 2. Context and deadline
 
-- GTA 6 releases **November 19, 2026** (PS5/Xbox, single-player only at launch).
-- Target: a working public version by **November 15–17, 2026**.
-- Scope tightly. Ship the core first, polish later. If time runs short, cut scope inside a phase rather than moving launch. The data pipeline (Phases 1–2) must not be late, because momentum needs history.
+- GTA 6 releases **November 19, 2026**. Target: public version by **November 15–17, 2026**.
+- **Data history is the one thing we can't recreate later.** YouTube collection must be running on the server by end of Nov 4. Everything else can slip; collection can't.
+- If time runs short, cut scope inside a phase rather than moving launch.
 
 ## 3. Product in one sentence
 
-Every hour we collect new GTA 6 videos, clips, streams and pageviews from official APIs, measure how fast they are growing, group them into topics, and rank topics by momentum. Free users see today's top 5 rising topics; Pro users (later) get everything plus alerts.
+Every hour we collect new GTA 6 videos, clips and streams (plus daily Wikipedia pageviews) from official APIs, measure how fast they grow, group them into topics, and rank topics by momentum. Free users see today's top 5 rising topics; Pro (after launch) gets everything plus alerts.
 
 ---
 
-## 4. Tech stack (my familiar stack — use exactly this)
+## 4. Tech stack (launch)
 
-- **Hosting:** one VPS running **Docker Compose**. Services: `caddy`, `web` (Next.js + TypeScript + Tailwind), `api` (FastAPI, Python 3.12), `worker` (Python 3.12), `postgres` (`pgvector/pgvector` image), `redis`, `uptime-kuma`.
-- **Reverse proxy:** Caddy with automatic HTTPS; routes `/` to `web` and `/api` to `api`.
-- **Backend API:** FastAPI; SQLAlchemy 2 + Alembic for models and migrations.
-- **Workers:** one Python service with APScheduler for all scheduled jobs; `httpx` (async) + `tenacity` (retries/backoff) + `pydantic` (response validation) for connectors.
-- **Database:** PostgreSQL with pgvector; partition the signals/snapshots tables by day.
-- **Transforms:** dbt Core (`dbt-postgres`), run by the worker after each ingestion cycle.
-- **Topics:** `sentence-transformers` (`all-MiniLM-L6-v2`) embeddings stored in pgvector, clustered with HDBSCAN. Cluster names from top keywords first; optional Claude API naming behind a feature flag with a hard monthly cost cap.
-- **Coordination:** Redis for quota counters, job locks and alert deduplication.
-- **Auth:** Auth.js in Next.js (email magic links via Resend); users stored in Postgres.
-- **Email:** Resend + React Email. **Instant alerts:** Telegram bot.
-- **Raw data + backups:** Cloudflare R2 (S3-compatible, use `boto3`). Nightly `pg_dump` to R2, keep 14 days. Lifecycle rules for raw-data retention per platform terms.
-- **Monitoring:** Sentry (web, api, worker) + Uptime Kuma.
-- **CI/CD:** GitHub Actions builds images, pushes to GitHub Container Registry, deploys to the VPS over SSH with `docker compose pull && docker compose up -d`.
-- **Security:** non-root containers; secrets only in a `.env` file on the server (never committed); firewall allows only 22/80/443; Postgres and Redis never exposed publicly.
+- **Hosting:** one VPS running **Docker Compose**. Services: `caddy`, `web` (Next.js + TypeScript + Tailwind), `api` (FastAPI, Python 3.12), `worker` (Python 3.12), `postgres` (`pgvector/pgvector` image).
+- **Reverse proxy:** Caddy, automatic HTTPS; `/` → `web`, `/api` → `api`, `/admin` protected with Caddy `basic_auth`.
+- **Backend:** FastAPI; SQLAlchemy 2 + Alembic.
+- **Worker:** one Python process, APScheduler (`max_instances=1` per job = job lock). `httpx` + `tenacity` + `pydantic` for connectors.
+- **Database:** PostgreSQL. No partitioning at launch; index `signals(item_id, captured_at)`. Raw API responses stored as `jsonb` in `raw_responses`, deleted after 30 days.
+- **Aggregations:** plain SQL views / materialized views refreshed by the worker after each ingestion cycle.
+- **Caching:** Next.js `revalidate` (data changes hourly). No Redis.
+- **Quota counting / alert dedupe:** Postgres (`connector_runs` sums; unique constraints).
+- **Email:** Resend HTTP API, sent from the worker, HTML via stdlib `string.Template`; HMAC-signed unsubscribe links.
+- **Alerts:** one public Telegram channel (broadcast), plus a private chat for ops alerts to me.
+- **Backups:** nightly `pg_dump` → Cloudflare R2 (`boto3`), 14-day retention via R2 lifecycle rule.
+- **Monitoring:** Sentry (web, api, worker). External uptime check on `/api/health` (UptimeRobot or Better Stack free tier). Healthchecks.io heartbeat pinged by the worker every cycle (catches a dead worker).
+- **CI/CD:** GitHub Actions: lint → build images → push to GHCR → `ansible-playbook site.yml --tags app` against the server. **This is the only deploy path.**
+- **Security:** non-root containers; secrets only in Ansible Vault / GitHub secrets; UFW allows only 22/80/443; Postgres never exposed publicly.
 
-Provide `docker-compose.yml`, a `Caddyfile`, `.env.example`, and a README covering local dev, deploy, and restore-from-backup.
+### Infrastructure (launch version)
 
-### Infrastructure as Code (automation)
-
-**Rule: no manual server or cloud changes.** Everything that creates or configures infrastructure lives in the repo and can rebuild the whole system from scratch.
-
-- **Provisioning — Terraform** (HashiCorp). Creates the cloud resources:
-  - VPS server, SSH key and cloud firewall (provider: ask me to confirm Hetzner or DigitalOcean; use its official Terraform provider)
-  - Cloudflare DNS records for the domain
-  - Cloudflare R2 buckets (raw data, backups) with lifecycle rules
-  - Outputs: server IP, bucket names
-  - Note: if I prefer a fully open-source licence, OpenTofu is a drop-in replacement; ask me once.
-- **Terraform state:** stored remotely, never in git. Use the R2 bucket as an S3-compatible backend (with the settings Cloudflare documents for S3 compatibility), or HCP Terraform's free tier — ask me which. Enable state locking where supported.
-- **Configuration — Ansible.** Configures the server and deploys the app, using roles:
-  - `common`: packages, timezone, automatic security updates, fail2ban
-  - `security`: non-root deploy user, SSH keys only, password login off, root login off, UFW firewall (22/80/443)
-  - `docker`: Docker Engine + Compose plugin from the official repository
-  - `app`: directories, `docker-compose.yml`, `Caddyfile`, templated `.env`, `docker compose pull && up -d`
-  - `backups`: nightly `pg_dump` to R2 via a systemd timer or cron, 14-day retention
-  - `monitoring`: Uptime Kuma container, log rotation
-  - Inventory generated from Terraform outputs (no hand-typed IPs).
-  - Playbooks must be **idempotent**: running twice changes nothing the second time.
-- **Secrets:** Ansible Vault for server secrets (the `.env` values), with the vault password stored only as a GitHub secret and on my machine. Terraform provider tokens only as environment variables / GitHub secrets. Never commit plain-text secrets. (HashiCorp Vault is overkill at this size; revisit later.)
-- **Pipelines (GitHub Actions):**
-  - `terraform.yml`: `fmt` + `validate` + `plan` on pull requests; `apply` only manually (workflow_dispatch) after I approve the plan.
-  - `deploy.yml`: build images → push to GHCR → run the Ansible `deploy` playbook against the server.
-  - `lint.yml`: `ansible-lint`, `terraform validate`, Python/TypeScript linters.
-- **Rebuild test:** the README must document how to destroy and recreate a staging server from zero using only Terraform + Ansible + a backup restore.
+- **One-time manual setup, documented:** VPS, Cloudflare DNS records, R2 bucket + lifecycle rule are created by hand once (I do it, you give me exact steps). Every step goes in `docs/MANUAL_SETUP.md`. Terraform replaces this after launch (P8.1).
+- **Ansible — one playbook, `infra/ansible/site.yml`**, tagged sections:
+  - `base`: packages, timezone, unattended security upgrades, fail2ban, deploy user, SSH keys only, root + password login off, UFW 22/80/443
+  - `docker`: Docker Engine + Compose plugin from the official repo
+  - `app`: directories, `docker-compose.yml`, `Caddyfile`, `.env` templated from Vault, GHCR login, `docker compose pull && up -d`
+  - `backups`: nightly `pg_dump` → R2 cron
+  - Inventory: `infra/ansible/inventory.ini` with the server IP (an IP is not a secret).
+  - Idempotent: second run reports 0 changes.
+- **Source of truth:** `docker-compose.yml` and `Caddyfile` live only in `infra/ansible/templates/`. No copies elsewhere.
+- **Secrets:** Ansible Vault for all `.env` values (including a GHCR `read:packages` token so the server can pull private images). GitHub secrets, set with `gh secret set`, values entered by me interactively, never echoed: `ANSIBLE_VAULT_PASSWORD`, `DEPLOY_SSH_KEY`, `DEPLOY_HOST`.
 
 ### Repository layout
 ```
 trend-radar/
-├── apps/web/            Next.js site, auth, admin UI
+├── apps/web/            Next.js site + admin UI
 ├── services/api/        FastAPI app
 ├── services/worker/
-│   ├── connectors/      youtube.py, twitch.py, wikipedia.py (later: bluesky, rss, threads, x, reddit)
-│   ├── scoring/         embeddings, clustering, momentum, naming
-│   ├── alerts/          spike detection, email + Telegram
+│   ├── connectors/      youtube.py, twitch.py, wikipedia.py
+│   ├── scoring/         topics, momentum
+│   ├── alerts/          spike detection, email, Telegram
 │   └── scheduler.py     APScheduler jobs
-├── dbt/                 dbt models and tests
 ├── db/migrations/       Alembic
-├── deploy/              docker-compose.yml, Caddyfile, backup scripts
-├── infra/
-│   ├── terraform/       VPS, firewall, DNS, R2 buckets, remote state config
-│   └── ansible/
-│       ├── inventory/   generated from Terraform outputs
-│       ├── roles/       common, security, docker, app, backups, monitoring
-│       ├── site.yml     full server setup
-│       └── deploy.yml   app deploy only
-├── docs/PLAN.md         phases, tasks, checklists
-└── .github/workflows/   CI and deploy
+├── infra/ansible/       site.yml, inventory.ini, templates/, group_vars/ (vault)
+├── docs/                PLAN.md, BRIEF.md, MANUAL_SETUP.md, CONNECTORS.md, SCORING.md
+└── .github/workflows/   ci.yml (lint + test), deploy.yml
 ```
 
 ---
 
 ## 5. Data sources
 
-Official APIs only. Never scrape any site, and never use third-party scraping services.
+Official APIs only. Never scrape, never use third-party scraping services.
 
-**Launch (build now):**
-1. **YouTube Data API v3** — signal type MAKE. Default quota 10,000 units/day: `search.list` ≈ 100 units, `videos.list` ≈ 1 unit per 50 IDs. Use search sparingly for discovery; use `videos.list` for hourly snapshots. Follow the YouTube API Services Terms (attribution, linking back, data storage/refresh rules).
-2. **Twitch API (Helix)** — signal type WATCH. Streams (title, viewer count) and top clips (title, clip views) for the GTA 6 game category. Handle app-token refresh automatically.
-3. **Wikimedia Pageviews API** — signal type WATCH. Daily pageviews for a configurable list of GTA-related articles.
+**Launch:**
+1. **YouTube Data API v3** — MAKE.
+   - **Quota budget (10,000 units/day; no increase possible before launch, since it needs a weeks-long audit):**
+     - Discovery: `search.list` (100 units) **≤ 60 calls/day** = 6,000. Plus `playlistItems.list` (1 unit) on the uploads playlists of a curated list of GTA channels in config, which is cheap discovery.
+     - Snapshots: `videos.list` (1 unit / 50 IDs), videos < 7 days old, hourly. ~2,000 videos ≈ 960 units/day.
+     - Channel sizes: `channels.list` (1 unit / 50 IDs), daily, ≈ 50 units/day.
+     - Guard: worker stops YouTube jobs at **9,000 units** used (counted from `connector_runs`, reset at midnight Pacific).
+   - Terms: "Data from YouTube" attribution + link back; refresh or delete stored YouTube API data within 30 days; check the Developer Policies on labelling derived metrics (our momentum score) before launch.
+2. **Twitch Helix** — WATCH. Streams (title, viewers) and top clips for the GTA 6 category; automatic app-token refresh.
+3. **Wikimedia Pageviews API** — WATCH. **Daily** granularity only, lags ~1 day, so it is a slow signal. Send a descriptive `User-Agent` per Wikimedia policy. Articles are mapped to topics **by hand in config**, not clustered.
 
-**After launch (build connectors behind feature flags, default OFF):**
-4. Bluesky (Jetstream, always-on listener) — TALK
-5. Gaming news RSS (headline, link, timestamp only) — TALK
-6. Threads API keyword search (requires `threads_keyword_search` permission; check current rate limit in Meta docs) — TALK
-7. X API pay-per-use (hard monthly spend cap in config) — TALK
-8. Reddit Data API (commercial use requires Reddit's approval) — TALK
-9. Google Trends API alpha (only if access is granted) — WATCH
-
-Do **not** add TikTok, Facebook or Instagram sources.
+**After launch (feature flags, default OFF):** Bluesky Jetstream, gaming news RSS (headline/link/time only), Threads keyword search, X pay-per-use (hard monthly cap), Reddit (after approval), Google Trends alpha (if granted). No TikTok, Facebook or Instagram.
 
 ---
 
 ## 6. Architecture
 
-- **Connectors:** one module per source; each with its own schedule, rate-limit/quota budget, retries with exponential backoff, and idempotent upserts.
-- **Raw layer:** save every raw API response to R2 as gzip JSON, partitioned `source/date/hour`, plus an index row in Postgres. Data can be re-processed without re-fetching.
-- **Signals layer:** normalize every source into one table: `source, item_id, item_type, title/text, url, author/channel, published_at, metric_name, metric_value, captured_at`.
-- **Topics layer:** cluster items from all sources into shared topics (`topics`, `topic_items`).
-- **Scoring:** per item, growth rate adjusted for age and channel size; per source, compare against that source's own baseline; per topic, weighted sum across sources (weights in config) vs the previous 24h. Flags: `NEW`, `SPIKING`, `CONFIRMED` (rising on 2+ sources at launch; raise to 3+ when more sources are on). Later: "Make this now" = high TALK/WATCH momentum with low MAKE coverage.
-- **Serving:** FastAPI reads scores; Next.js renders pages; alert jobs and the content card read from Postgres.
+- **Connectors:** one module per source; own schedule, quota budget, tenacity backoff, idempotent upserts.
+- **Raw layer:** every API response → `raw_responses` (`source, fetched_at, payload jsonb`). Re-processable without re-fetching. 30-day cleanup job.
+- **Signals:** one table: `source, item_id, item_type, title, url, channel, published_at, metric_name, metric_value, captured_at`.
+- **Topics (v1, keyword-based):** curated alias list in config (e.g. `lucia`, `jason`, `vice city`, `trailer 3`, `price`, `pc release`, `leak`) + n-gram counting over cleaned titles to surface new phrases. Topic ID = slug, so IDs are stable by construction.
+  - **Upgrade path (only if my top-20 review shows keyword topics miss or duplicate too much):** MiniLM embeddings (CPU-only torch wheel) in pgvector, HDBSCAN, and stable IDs by matching each new cluster centroid to existing topics (cosine ≥ 0.8 → reuse ID, else new topic).
+- **Scoring:** per item, growth rate adjusted for age and channel size; per source, vs that source's own baseline; per topic, weighted sum across sources (weights in config) vs previous 24h. Flags: `NEW`, `SPIKING`, `CONFIRMED` (rising on 2+ sources; expect this to be rare at launch since Twitch titles are noisy, so it must not block anything). Formula in `docs/SCORING.md`.
+- **Serving:** FastAPI reads scores; Next.js renders with `revalidate`; worker sends alerts and digest.
 
 ---
 
 ## 7. Phases and tasks
 
-Put all of these in `docs/PLAN.md`. **Each task below gets the full Definition of Done checklist from section 0**, plus its task-specific checks.
-
 ### Phase 0 — Accounts and access (Nov 3)
-Phase done when: every launch-day key is in hand and slow applications are submitted. (I do most of these; you give me a list and verify what you can.)
+Phase done when: launch keys are in hand and slow applications are submitted.
 - **P0.GH** GitHub repository (section 1)
-- **P0.1** Give me a checklist of accounts/keys to create: VPS provider account + API token (for Terraform), domain on Cloudflare + Cloudflare API token (DNS + R2 permissions only), R2 access keys, YouTube API key, Twitch app, Resend, Telegram bot, Sentry; applications for Reddit, Threads, Google Trends
-  - [ ] List delivered  - [ ] `.env.example` lists every variable needed  - [ ] Each token uses the minimum permissions required
-- **P0.2** Local tooling check: `terraform` (or `tofu`), `ansible`, `ansible-lint`, `docker`, `gh` installed on my machine
-  - [ ] Versions printed and confirmed
+- **P0.1** Checklist of accounts/keys for me: VPS provider, domain on Cloudflare (**note: avoid "GTA" in the domain because of trademark risk**), R2 access keys (bucket-scoped), YouTube API key, Twitch app, Resend, Telegram bot, Sentry, Healthchecks.io, uptime monitor. Submit applications today: Reddit, Threads, Google Trends.
+  - [ ] List delivered  - [ ] `.env.example` lists every variable  - [ ] Each token minimum-permission
+- **P0.2** Local tooling: `ansible`, `ansible-lint`, `docker`, `gh`
+  - [ ] Versions printed
 
-### Phase 1 — Server foundation, fully automated (Nov 3–4)
-Phase done when: Terraform + Ansible can build the server from zero, a push to `main` deploys automatically, the domain loads over HTTPS, and a backup has been restored successfully. No manual server changes.
-- **P1.1** Terraform remote state backend (R2 or HCP Terraform, as I choose)
-  - [ ] `terraform init` uses the remote backend  - [ ] No state file in git  - [ ] Locking works (or limitation documented)
-- **P1.2** Terraform: VPS, SSH key, cloud firewall (22/80/443), Cloudflare DNS, R2 buckets with lifecycle rules
-  - [ ] `terraform plan` reviewed and approved by me before `apply`  - [ ] Outputs show server IP and bucket names  - [ ] Second `plan` shows no changes
-- **P1.3** Ansible inventory generated from Terraform outputs
-  - [ ] `ansible all -m ping` succeeds without hand-typed IPs
-- **P1.4** Ansible roles `common` + `security`: updates, fail2ban, deploy user, SSH keys only, root and password login off, UFW 22/80/443
-  - [ ] Password SSH login refused  - [ ] Root login refused  - [ ] `ansible-lint` passes  - [ ] Second run reports 0 changes (idempotent)
-- **P1.5** Ansible role `docker` + `app`: Docker Engine, Compose, all services; placeholder `web`, `api`, `worker` that start and respond; `.env` from Ansible Vault
-  - [ ] `docker compose ps` shows all healthy  - [ ] Postgres and Redis not reachable from outside  - [ ] No plain-text secrets in the repo
-- **P1.6** Caddy + domain + automatic HTTPS
-  - [ ] `https://<domain>` loads  - [ ] `/api/health` returns OK
-- **P1.7** GitHub Actions: `lint.yml`, `terraform.yml` (plan on PR, manual apply), `deploy.yml` (build → GHCR → Ansible deploy); secrets set with `gh secret set`
-  - [ ] A test commit deploys automatically  - [ ] A PR shows a Terraform plan
-- **P1.8** Ansible role `backups`: nightly `pg_dump` to R2, 14-day retention
-  - [ ] A backup file appears in R2  - [ ] Restored into a test database successfully
-- **P1.9** Ansible role `monitoring` + Sentry in web, api, worker
-  - [ ] A test error appears in Sentry  - [ ] Uptime Kuma shows all checks green
-- **P1.10** Rebuild drill: destroy a staging server and rebuild it from scratch with Terraform + Ansible + backup restore, timing each step
-  - [ ] Rebuild completed  - [ ] Steps and time documented in the README
+### Phase 1 — Server up, YouTube collecting (Nov 3–4) ⚠ critical path
+Phase done when: YouTube snapshots land hourly in Postgres on the server.
+- **P1.1** Manual one-time setup (VPS, DNS, R2 bucket + 14-day lifecycle), steps in `docs/MANUAL_SETUP.md`
+  - [ ] Server reachable by SSH key  - [ ] DNS resolves
+- **P1.2** Ansible `site.yml` tags `base` + `docker` + `app`; compose with caddy, postgres, worker, placeholder api/web; `.env` from Vault
+  - [ ] Password + root SSH refused  - [ ] `docker compose ps` healthy  - [ ] Postgres not reachable from outside  - [ ] Second run 0 changes  - [ ] `ansible-lint` passes
+- **P1.3** HTTPS via Caddy
+  - [ ] `https://<domain>` loads  - [ ] `/api/health` OK
+- **P1.4** Alembic: `raw_responses`, `items`, `signals`, `connector_runs`
+  - [ ] Up and down clean
+- **P1.5** YouTube discovery (search + uploads playlists) + hourly snapshots + quota guard + `connector_runs` logging + pydantic validation + tenacity retries
+  - [ ] New videos in `items`, re-run creates no duplicates  - [ ] Hourly rows in `signals`  - [ ] Simulated quota limit stops jobs  - [ ] Simulated 429/5xx retries
 
-### Phase 2 — First data flowing (Nov 5–6)
-Phase done when: new GTA 6 videos are discovered automatically, views are snapshotted hourly, and daily quota stays well under the limit.
-- **P2.1** Alembic migrations: `raw_responses`, `items`, `signals` (partitioned by day), `connector_runs`
-  - [ ] Migrations run up and down cleanly
-- **P2.2** R2 raw-storage helper (gzip JSON, `source/date/hour` paths)
-  - [ ] Test file written and read back
-- **P2.3** YouTube discovery job (configurable queries, ordered by date)
-  - [ ] New videos appear in `items`  - [ ] Re-run creates no duplicates
-- **P2.4** YouTube hourly snapshot job (videos < 7 days old, batches of 50)
-  - [ ] Hourly rows in `signals` for the same videos
-- **P2.5** Redis quota guard + tenacity retries + pydantic validation
-  - [ ] Simulated quota limit stops jobs  - [ ] Simulated 429/5xx retries correctly
-- **P2.6** `connector_runs` logging (items, errors, quota used)
-  - [ ] Overnight run reviewed: snapshots every hour, quota under limit
+### Phase 2 — More sources + safety basics (Nov 5)
+Phase done when: three sources land in `signals`, a backup restores, and a push to `main` deploys.
+- **P2.1** Twitch connector (game ID, streams, clips, token refresh)  - [ ] Streams + clips in `signals`
+- **P2.2** Wikipedia connector (daily, User-Agent, article→topic map)  - [ ] Daily pageviews in `signals`
+- **P2.3** YouTube `channels.list` daily job  - [ ] Subscriber counts stored
+- **P2.4** Backups tag: nightly `pg_dump` → R2  - [ ] File in R2  - [ ] Restored into a test DB
+- **P2.5** GitHub Actions `ci.yml` + `deploy.yml`; secrets via `gh secret set`  - [ ] Test commit deploys automatically
+- **P2.6** Sentry (worker, api) + Healthchecks.io heartbeat + external uptime check  - [ ] Test error in Sentry  - [ ] Stopping worker triggers Healthchecks alert
+- **P2.7** `docs/CONNECTORS.md`: how to add a source
+- **P2.8** Overnight review  - [ ] Snapshots every hour, quota under budget
 
-### Phase 3 — More sources (Nov 7)
-Phase done when: Twitch and Wikipedia data land in `signals` with no downstream changes.
-- **P3.1** Twitch connector (streams + clips, token refresh)
-  - [ ] GTA 6 game ID resolved  - [ ] Streams and clips in `signals`
-- **P3.2** Wikipedia pageviews connector
-  - [ ] Daily pageviews in `signals`
-- **P3.3** Connector template documented for future sources
-  - [ ] `docs/CONNECTORS.md` explains how to add a source
-
-### Phase 4 — The brain (Nov 8–9)
+### Phase 3 — The brain (Nov 6–8)
 Phase done when: hourly top topics look sensible to a human, with no obvious duplicates or spam.
-- **P4.1** dbt models: raw → clean signals → hourly aggregates; dbt tests (no duplicates, no negative growth, no missing timestamps)
-  - [ ] `dbt build` passes  - [ ] Runs automatically after ingestion
-- **P4.2** Title cleaning + MiniLM embeddings stored in pgvector
-  - [ ] Embeddings stored for all recent items
-- **P4.3** HDBSCAN clustering into `topics` / `topic_items`, stable across hours
-  - [ ] Same topic keeps the same ID hour to hour
-- **P4.4** Topic naming from top keywords (Claude naming behind a flag, cost-capped)
-  - [ ] Names readable for top 20 topics
-- **P4.5** Momentum scoring + flags → `topic_scores` hourly; spam/reupload filters; formula documented
-  - [ ] I review the top 20 topics and approve
+- **P3.1** SQL views: clean signals → hourly aggregates; refreshed after each cycle  - [ ] Data checks pass: no duplicates, no negative growth, no null timestamps
+- **P3.2** Title cleaning + keyword topics (aliases + n-grams) → `topics`, `topic_items`  - [ ] Same topic keeps same ID hour to hour
+- **P3.3** Momentum scoring + flags → `topic_scores` hourly; spam/reupload filters; `docs/SCORING.md`
+  - [ ] I review the top 20 and approve (or we trigger the embeddings upgrade path)
 
-### Phase 5 — The product (Nov 10–11)
+### Phase 4 — The product (Nov 9–11)
 Phase done when: a stranger on a phone understands the site, sees today's top topics, and joins the waitlist in under a minute.
-- **P5.1** API: `GET /topics/top`, `GET /topics/{slug}`, `GET /videos/rising`, `POST /waitlist`; free vs Pro limits enforced server-side; Redis response caching
-  - [ ] Endpoint tests pass  - [ ] Cached responses verified
-- **P5.2** Home page: top 5, "updated X minutes ago", waitlist CTA
-- **P5.3** Topic page: 7-day momentum chart, videos, related keywords
-- **P5.4** Rising videos page (free: top 10)
-- **P5.5** Pro page + About page (unofficial fan-made tool, not affiliated with Rockstar Games or Take-Two; "Data from YouTube" attribution)
-- **P5.6** Auth.js magic-link login via Resend
-- **P5.7** SEO titles/descriptions; original design (no GTA logos or artwork); mobile-first
-  - [ ] Each page checked on a phone-size screen
+- **P4.1** API: `GET /topics/top`, `GET /topics/{slug}`, `GET /videos/rising`, `POST /waitlist` (rate-limited, email validated)  - [ ] Endpoint tests pass
+- **P4.2** Home: top 5, "updated X minutes ago", waitlist CTA
+- **P4.3** Topic page: 7-day momentum chart, videos, related keywords
+- **P4.4** Rising videos (top 10)
+- **P4.5** About (unofficial fan-made tool, not affiliated with Rockstar Games or Take-Two; "Data from YouTube" attribution) + **Privacy policy** + Pro teaser
+- **P4.6** SEO titles/descriptions; original design (no GTA logos/artwork); mobile-first; Sentry in web  - [ ] Every page checked at phone width
 
-### Phase 6 — Delivery (Nov 12)
-Phase done when: a test spike triggers a Telegram alert within minutes, the morning digest arrives, and the daily card is ready to post.
-- **P6.1** Daily digest email (Resend + React Email), with unsubscribe
-- **P6.2** Spike alerts by email + Telegram; Redis dedupe (one alert per topic per user, daily cap)
-  - [ ] Simulated spike delivers exactly one alert
-- **P6.3** Admin button: 1080×1920 content card of the top 5 + short on-camera script
-  - [ ] Card generated and downloaded
+### Phase 5 — Delivery (Nov 12)
+Phase done when: a test spike posts to the Telegram channel within minutes, the morning digest arrives, and the daily card is ready.
+- **P5.1** Daily digest to waitlist (Resend, signed unsubscribe link)  - [ ] Received; unsubscribe works
+- **P5.2** Spike alerts → public Telegram channel; dedupe via unique `(topic_id, date)`  - [ ] Simulated spike posts exactly once
+- **P5.3** Admin button: 1080×1920 card of top 5 via Next.js `ImageResponse` (`next/og`) + short on-camera script  - [ ] Card downloaded
 
-### Phase 7 — Safety net and testing (Nov 13–14)
-Phase done when: five outside people used the site without help, all sources show healthy, and a deliberately broken job raises an alert.
-- **P7.1** Admin page: source health, quota/budget, merge/rename/hide topics, edit queries and weights, export waitlist CSV
-- **P7.2** Alerts to me: Telegram message when a connector fails twice in a row
-  - [ ] Broken job triggers the alert
-- **P7.3** Load test home page and API
-  - [ ] Results documented; cached responses hold
-- **P7.4** Fix list from my review and user testing; then feature freeze
+### Phase 6 — Safety net and testing (Nov 13–14)
+Phase done when: five outside people used the site without help, all sources are healthy, and a deliberately broken job raises an alert.
+- **P6.1** Admin page (`/admin`, basic_auth): source health, quota used, rename/merge/hide topics, waitlist CSV export. (Queries and weights stay in config and change via deploy.)
+- **P6.2** Ops alert to my Telegram when a connector fails twice in a row  - [ ] Broken job triggers it
+- **P6.3** Quick load test (`oha` or `hey`) on home + API  - [ ] Results documented
+- **P6.4** Fix list from review + user testing → feature freeze
 
-### Phase 8 — Launch (Nov 15–19)
-Phase done when: the site is public and stable through GTA 6 release day.
-- **P8.1** Pre-launch check of every source, alert, digest and backup
-- **P8.2** Go live; monitor errors, uptime and quota every few hours for the first 48h
-- **P8.3** Tune scoring weights on real release-week data
+### Phase 7 — Launch (Nov 15–19)
+Phase done when: the site is public and stable through release day.
+- **P7.1** Pre-launch check: every source, alert, digest, backup
+- **P7.2** Go live; check errors, uptime, quota every few hours for the first 48h
+- **P7.3** Tune scoring weights on release-week data
 
-### Phase 9 — After launch (Nov 20 onward; each behind a feature flag)
-- **P9.1** Bluesky Jetstream listener  - **P9.2** RSS  - **P9.3** Threads  - **P9.4** X (spend cap)  - **P9.5** Reddit (after approval)
-- **P9.6** "Make this now" list
-- **P9.7** Stripe subscriptions + Pro features
-- **P9.8** Upgrade triggers documented: Dagster when jobs multiply; bigger VPS when resources stay high; BigQuery/Snowflake only with many games or years of data
+### Phase 8 — After launch (Nov 20 onward)
+- **P8.1** Terraform for VPS, firewall, DNS, R2 (remote state on R2, locking documented); `terraform.yml` plan-on-PR, manual apply
+- **P8.2** Rebuild drill: staging server from zero with Terraform + Ansible + backup restore, timed, documented (ask before creating the paid staging server)
+- **P8.3** Auth.js magic links + Stripe + Pro features + per-user email/Telegram alerts
+- **P8.4** New sources behind flags: Bluesky, RSS, Threads, X (spend cap), Reddit (after approval)
+- **P8.5** "Make this now" list (high TALK/WATCH momentum, low MAKE coverage)
+- **P8.6** Upgrade triggers, documented: Redis when >1 worker or response caching isn't enough · dbt when SQL views get hard to manage · partition `signals` near 100M rows · Dagster when jobs multiply · bigger VPS when resources stay high
 
 ---
 
-## 8. Rules (apply to every task)
+## 8. Rules (every task)
 
 - Official APIs only; follow each platform's terms; stay within rate limits.
-- Never use Rockstar/GTA logos, artwork, characters or music in our design. Label the product as an unofficial, fan-made tool.
-- We sell analysis, rankings and alerts — never raw platform data.
-- Store minimal user data (email, alert settings); easy unsubscribe.
-- Secrets only in environment variables, GitHub secrets or Ansible Vault. Never commit, print or log them.
-- Infrastructure only through Terraform and Ansible — no manual changes on the server or in cloud dashboards. If something must be done by hand once, document it and automate it next.
-- Ask me before: spending money, any `terraform apply` or `destroy`, deleting data, changing production data, or force-pushing.
+- No Rockstar/GTA logos, artwork, characters or music. Label the product as an unofficial, fan-made tool.
+- We sell analysis, rankings and alerts, never raw platform data.
+- Minimal user data (email); one-click unsubscribe.
+- Secrets only in Ansible Vault, GitHub secrets or env vars. Never commit, print or log them.
+- Server changes only through Ansible. Anything done by hand once goes in `docs/MANUAL_SETUP.md` and gets automated after launch.
+- Ask me before: spending money, deleting data, changing production data, force-pushing, or creating/destroying servers.
 
-**Start now with section 1 (GitHub repository), then create `docs/PLAN.md` with every task and its checklist, and show me the plan before starting Phase 1.**
+**Start now with section 1 (GitHub repository), then create `docs/PLAN.md`, and show me the plan before starting Phase 1.**
