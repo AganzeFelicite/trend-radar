@@ -7,4 +7,29 @@ Unofficial, fan-made tool, not affiliated with Rockstar Games or Take-Two Intera
 - Brief: [docs/BRIEF.md](docs/BRIEF.md)
 - Plan and progress: [docs/PLAN.md](docs/PLAN.md)
 
-Local dev, deploy and restore instructions will be added as each part lands.
+## Local dev
+
+Needs Docker and [uv](https://docs.astral.sh/uv/).
+
+```sh
+docker compose up -d postgres     # Postgres on 127.0.0.1:5432
+uv sync                           # Python 3.12 venv in .venv
+uv run alembic upgrade head       # create tables
+uv run pytest                     # tests use a separate trend_radar_test database
+```
+
+Collect real YouTube data locally (put `YOUTUBE_API_KEY=...` in `.env` first; it is gitignored):
+
+```sh
+docker compose --profile worker up -d --build
+docker compose logs -f worker
+```
+
+Check what's been collected:
+
+```sh
+docker compose exec postgres psql -U trend_radar -c \
+  "select job, status, items_count, quota_used, started_at from connector_runs order by id desc limit 10"
+```
+
+Deploy and restore instructions will be added once the server exists.

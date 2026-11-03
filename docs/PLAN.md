@@ -32,30 +32,35 @@ Done when: launch keys are in hand and slow applications are submitted.
 ## Phase 1: Server up, YouTube collecting (Nov 3–4) ⚠ critical path
 Done when: YouTube snapshots land hourly in Postgres on the server.
 
-- [ ] **P1.1** Manual one-time setup (VPS, DNS, R2 bucket + 14-day lifecycle) → `docs/MANUAL_SETUP.md`
+> Nov 3: no server yet → P1.4 and P1.5 built and running locally first. Local collection can start as soon as the YouTube key exists; history moves to the server later via `pg_dump`.
+
+- [~] **P1.1** Manual one-time setup (VPS, DNS, R2 bucket + 14-day lifecycle) → `docs/MANUAL_SETUP.md`. **Blocked: no server yet.**
   - [ ] Server reachable by SSH key
   - [ ] DNS resolves
   - Verified:
-- [ ] **P1.2** Ansible `site.yml` (`base`, `docker`, `app`); compose: caddy, postgres, worker, placeholder api/web; `.env` from Vault
+- [~] **P1.2** Ansible `site.yml` (`base`, `docker`, `app`); compose: caddy, postgres, worker, placeholder api/web; `.env` from Vault. **Blocked: P1.1.**
   - [ ] Password + root SSH refused
   - [ ] `docker compose ps` healthy
   - [ ] Postgres not reachable from outside
   - [ ] Second run reports 0 changes
   - [ ] `ansible-lint` passes
   - Verified:
-- [ ] **P1.3** HTTPS via Caddy
+- [~] **P1.3** HTTPS via Caddy. **Blocked: P1.1.**
   - [ ] `https://<domain>` loads
   - [ ] `/api/health` OK
   - Verified:
-- [ ] **P1.4** Alembic: `raw_responses`, `items`, `signals`, `connector_runs`
-  - [ ] Up and down clean
-  - Verified:
+- [x] **P1.4** Alembic: `raw_responses`, `items`, `signals`, `connector_runs`
+  - [x] Up and down clean
+  - Verified: local Postgres: `alembic upgrade head` → 4 tables; `alembic downgrade base` → only `alembic_version`; `upgrade head` again OK; `alembic check` → "No new upgrade operations detected."
 - [ ] **P1.5** YouTube discovery + hourly snapshots + quota guard + `connector_runs` + pydantic + tenacity
-  - [ ] New videos in `items`; re-run creates no duplicates
-  - [ ] Hourly rows in `signals`
-  - [ ] Simulated quota limit stops jobs
-  - [ ] Simulated 429/5xx retries
-  - Verified:
+  - [x] New videos in `items`; re-run creates no duplicates (test, mocked API)
+  - [x] Hourly rows in `signals`; same-hour re-run upserts (test, mocked API)
+  - [x] Simulated quota limit stops jobs (test)
+  - [x] Simulated 429/5xx retries; 4xx not retried (test)
+  - [x] Worker image builds, runs as non-root, migrates on start, exits if `YOUTUBE_API_KEY` missing
+  - [ ] **Real run against the YouTube API**: waiting on the key
+  - [ ] Sub-task: discovery via uploads playlists (1 unit/call): needs the curated GTA channel list
+  - Verified: `uv run pytest` → 5 passed; `docker compose --profile worker run --rm worker` → "YOUTUBE_API_KEY is not set"
 
 ## Phase 2: More sources + safety basics (Nov 5)
 Done when: three sources land in `signals`, a backup restores, and a push to `main` deploys.

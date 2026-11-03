@@ -78,21 +78,25 @@ Every hour we collect new GTA 6 videos, clips and streams (plus daily Wikipedia 
   - `backups`: nightly `pg_dump` → R2 cron
   - Inventory: `infra/ansible/inventory.ini` with the server IP (an IP is not a secret).
   - Idempotent: second run reports 0 changes.
-- **Source of truth:** `docker-compose.yml` and `Caddyfile` live only in `infra/ansible/templates/`. No copies elsewhere.
+- **Source of truth:** `docker-compose.yml` lives only at the repo root (Ansible copies it); `Caddyfile` only in `infra/ansible/templates/`. No copies elsewhere.
 - **Secrets:** Ansible Vault for all `.env` values (including a GHCR `read:packages` token so the server can pull private images). GitHub secrets, set with `gh secret set`, values entered by me interactively, never echoed: `ANSIBLE_VAULT_PASSWORD`, `DEPLOY_SSH_KEY`, `DEPLOY_HOST`.
 
 ### Repository layout
 ```
 trend-radar/
-├── apps/web/            Next.js site + admin UI
-├── services/api/        FastAPI app
-├── services/worker/
+├── trend_radar/         one Python package + one image; worker and api share the models
+│   ├── db.py            models + connector_run logging
 │   ├── connectors/      youtube.py, twitch.py, wikipedia.py
 │   ├── scoring/         topics, momentum
 │   ├── alerts/          spike detection, email, Telegram
+│   ├── api.py           FastAPI app (same image, different command)
 │   └── scheduler.py     APScheduler jobs
-├── db/migrations/       Alembic
-├── infra/ansible/       site.yml, inventory.ini, templates/, group_vars/ (vault)
+├── migrations/          Alembic
+├── tests/
+├── docker-compose.yml   the only compose file; Ansible copies it to the server
+├── Dockerfile           Python image (worker + api)
+├── apps/web/            Next.js site + admin UI
+├── infra/ansible/       site.yml, inventory.ini, templates/ (Caddyfile, .env), group_vars/ (vault)
 ├── docs/                PLAN.md, BRIEF.md, MANUAL_SETUP.md, CONNECTORS.md, SCORING.md
 └── .github/workflows/   ci.yml (lint + test), deploy.yml
 ```
