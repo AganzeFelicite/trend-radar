@@ -1,4 +1,4 @@
-"""YouTube Data API v3: discovery (search.list) and hourly view snapshots (videos.list)."""
+"""YouTube Data API v3: discovery (search.list), hourly video snapshots (videos.list), daily channel sizes (channels.list)."""
 
 import html
 from datetime import datetime, timedelta, timezone
@@ -7,16 +7,15 @@ from zoneinfo import ZoneInfo
 import httpx
 from pydantic import BaseModel
 from sqlalchemy import func, select
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
-from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from trend_radar import config
-from trend_radar.db import ConnectorRun, Item, RawResponse, Signal, connector_run
+from trend_radar.connectors.common import retry_http, this_hour, upsert_items, upsert_signals
+from trend_radar.db import ConnectorRun, Item, RawResponse, connector_run
 
 API = "https://www.googleapis.com/youtube/v3/"
 SOURCE = "youtube"
-COST = {"search": 100, "videos": 1}
+COST = {"search": 100, "videos": 1, "channels": 1}
 
 
 class QuotaExhausted(Exception):
@@ -59,6 +58,24 @@ class VideosResponse(BaseModel):
     items: list[_Video] = []
 
 
+class _ChannelSnippet(BaseModel):
+    title: str
+
+
+class _ChannelStatistics(BaseModel):
+    subscriberCount: int | None = None  # missing when the channel hides it
+
+
+class _Channel(BaseModel):
+    id: str
+    snippet: _ChannelSnippet
+    statistics: _ChannelStatistics
+
+
+class ChannelsResponse(BaseModel):
+    items: list[_Channel] = []
+
+
 def client() -> httpx.Client:
     # Key goes in a header, not the URL, so it never ends up in error messages or logs.
     return httpx.Client(base_url=API, headers={"X-Goog-Api-Key": config.YOUTUBE_API_KEY}, timeout=30)
@@ -73,18 +90,7 @@ def quota_used_today(s: Session) -> int:
     )
 
 
-def _retryable(e: BaseException) -> bool:
-    if isinstance(e, httpx.HTTPStatusError):
-        return e.response.status_code == 429 or e.response.status_code >= 500
-    return isinstance(e, httpx.TransportError)
-
-
-@retry(
-    retry=retry_if_exception(_retryable),
-    wait=wait_exponential(multiplier=2, max=60),
-    stop=stop_after_attempt(5),
-    reraise=True,
-)
+@retry_http
 def _call(s: Session, run: ConnectorRun, http: httpx.Client, endpoint: str, params: dict) -> dict:
     """One API request. Charged before sending (failed requests cost quota too), so retries are counted."""
     cost = COST[endpoint]
@@ -99,6 +105,13 @@ def _call(s: Session, run: ConnectorRun, http: httpx.Client, endpoint: str, para
     return data
 
 
+def _recent_videos(s: Session, column):
+    cutoff = datetime.now(timezone.utc) - timedelta(days=config.YOUTUBE_SNAPSHOT_MAX_AGE_DAYS)
+    return s.scalars(select(column).distinct().where(
+        Item.source == SOURCE, Item.item_type == "video", Item.published_at >= cutoff
+    )).all()
+
+
 def discover(http: httpx.Client | None = None) -> None:
     http = http or client()
     since = (datetime.now(timezone.utc) - timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -108,8 +121,8 @@ def discover(http: httpx.Client | None = None) -> None:
             params = {"part": "snippet", "type": "video", "q": query, "order": order,
                       "publishedAfter": since, "maxResults": 50}
             data = SearchResponse.model_validate(_call(s, run, http, "search", params))
-            rows = {
-                v.id.videoId: dict(
+            run.items_count += upsert_items(s, [
+                dict(
                     source=SOURCE,
                     item_id=v.id.videoId,
                     item_type="video",
@@ -120,40 +133,48 @@ def discover(http: httpx.Client | None = None) -> None:
                     published_at=v.snippet.publishedAt,
                 )
                 for v in data.items
-            }
-            if rows:
-                stmt = insert(Item).values(list(rows.values()))
-                s.execute(stmt.on_conflict_do_update(
-                    index_elements=["source", "item_id"], set_={"title": stmt.excluded.title}
-                ))
-            run.items_count += len(rows)
+            ])
             s.commit()
 
 
 def snapshot(http: httpx.Client | None = None) -> None:
     http = http or client()
-    now = datetime.now(timezone.utc)
-    hour = now.replace(minute=0, second=0, microsecond=0)
+    hour = this_hour()
     with connector_run(SOURCE, "snapshot") as (s, run):
-        ids = s.scalars(select(Item.item_id).where(
-            Item.source == SOURCE,
-            Item.published_at >= now - timedelta(days=config.YOUTUBE_SNAPSHOT_MAX_AGE_DAYS),
-        )).all()
+        ids = _recent_videos(s, Item.item_id)
         for i in range(0, len(ids), 50):
             params = {"part": "statistics", "id": ",".join(ids[i:i + 50]), "maxResults": 50}
             data = VideosResponse.model_validate(_call(s, run, http, "videos", params))
-            rows = [
+            upsert_signals(s, [
                 dict(source=SOURCE, item_id=v.id, metric_name=name, metric_value=value, captured_at=hour)
                 for v in data.items
                 for name, value in (("views", v.statistics.viewCount), ("likes", v.statistics.likeCount),
                                     ("comments", v.statistics.commentCount))
                 if value is not None
-            ]
-            if rows:
-                stmt = insert(Signal).values(rows)
-                s.execute(stmt.on_conflict_do_update(
-                    index_elements=["source", "item_id", "metric_name", "captured_at"],
-                    set_={"metric_value": stmt.excluded.metric_value},
-                ))
+            ])
+            run.items_count += len(data.items)
+            s.commit()
+
+
+def channels(http: httpx.Client | None = None) -> None:
+    """Daily subscriber counts for channels with recent videos (scoring adjusts growth for channel size).
+    Channels are stored as items (item_type='channel') so they reuse the signals table."""
+    http = http or client()
+    today = this_hour().replace(hour=0)
+    with connector_run(SOURCE, "channels") as (s, run):
+        ids = [c for c in _recent_videos(s, Item.channel_id) if c]
+        for i in range(0, len(ids), 50):
+            params = {"part": "snippet,statistics", "id": ",".join(ids[i:i + 50]), "maxResults": 50}
+            data = ChannelsResponse.model_validate(_call(s, run, http, "channels", params))
+            upsert_items(s, [
+                dict(source=SOURCE, item_id=c.id, item_type="channel", title=c.snippet.title,
+                     url=f"https://www.youtube.com/channel/{c.id}")
+                for c in data.items
+            ])
+            upsert_signals(s, [
+                dict(source=SOURCE, item_id=c.id, metric_name="subscribers",
+                     metric_value=c.statistics.subscriberCount, captured_at=today)
+                for c in data.items if c.statistics.subscriberCount is not None
+            ])
             run.items_count += len(data.items)
             s.commit()

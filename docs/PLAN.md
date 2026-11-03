@@ -66,14 +66,17 @@ Done when: YouTube snapshots land hourly in Postgres on the server.
 Done when: three sources land in `signals`, a backup restores, and a push to `main` deploys.
 
 - [ ] **P2.1** Twitch connector (game ID, streams, clips, token refresh)
-  - [ ] Streams + clips in `signals`
-  - Verified:
-- [ ] **P2.2** Wikipedia connector (daily, User-Agent, article→topic map)
-  - [ ] Daily pageviews in `signals`
-  - Verified:
+  - [x] Streams (paged by cursor) + clips in `signals`; same-hour re-run overwrites (test, mocked API)
+  - [x] Token cached and reused; 401 → refreshed once; missing category fails the run (tests)
+  - [ ] **Real run**: waiting on the Twitch app (client ID + secret); confirms the category name "Grand Theft Auto VI"
+  - Verified: `uv run pytest tests/test_twitch.py` → 3 passed
+- [x] **P2.2** Wikipedia connector (daily, User-Agent; article→topic mapping moves to P3.2 when topics exist)
+  - [x] Daily pageviews in `signals`
+  - Verified: live API run Nov 3: 6/6 articles found, 30 days each (GTA VI avg 16,835/day, peak 26,444); worker in Docker ran it on start → `connector_runs` status ok, 6 items
 - [ ] **P2.3** YouTube `channels.list` daily job
-  - [ ] Subscriber counts stored
-  - Verified:
+  - [x] Subscriber counts stored as `channel` items + `subscribers` signals; hidden counts skipped; snapshot ignores channels (test)
+  - [ ] **Real run**: waiting on the YouTube key
+  - Verified: `uv run pytest tests/test_youtube.py` → 6 passed
 - [ ] **P2.4** Backups: nightly `pg_dump` → R2
   - [ ] File in R2
   - [ ] Restored into a test DB
@@ -85,8 +88,8 @@ Done when: three sources land in `signals`, a backup restores, and a push to `ma
   - [ ] Test error in Sentry
   - [ ] Stopping worker triggers Healthchecks alert
   - Verified:
-- [ ] **P2.7** `docs/CONNECTORS.md`: how to add a source
-  - Verified:
+- [x] **P2.7** `docs/CONNECTORS.md`: how to add a source
+  - Verified: doc lists all 5 jobs (schedule, metrics, cost, keys) and the 10-step recipe the 3 connectors follow
 - [ ] **P2.8** Overnight review
   - [ ] Snapshots every hour, quota under budget
   - Verified:

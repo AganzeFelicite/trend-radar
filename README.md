@@ -18,10 +18,10 @@ uv run alembic upgrade head       # create tables
 uv run pytest                     # tests use a separate trend_radar_test database
 ```
 
-Collect real YouTube data locally (put `YOUTUBE_API_KEY=...` in `.env` first; it is gitignored):
+Collect real data locally (keys go in `.env`, which is gitignored; see `.env.example`):
 
 ```sh
-docker compose --profile worker up -d --build
+docker compose up -d --build       # runs every connector that has its keys; Wikipedia needs none
 docker compose logs -f worker
 ```
 

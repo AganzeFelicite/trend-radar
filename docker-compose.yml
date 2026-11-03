@@ -19,12 +19,15 @@ services:
     build: .
     environment:
       DATABASE_URL: postgresql+psycopg://trend_radar:${POSTGRES_PASSWORD:-trend_radar}@postgres:5432/trend_radar
+      # Connectors without keys are skipped (Wikipedia needs none, so the worker is always useful).
       YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
+      TWITCH_CLIENT_ID: ${TWITCH_CLIENT_ID:-}
+      TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET:-}
+      WIKIMEDIA_USER_AGENT: ${WIKIMEDIA_USER_AGENT:-}
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
-    profiles: [worker] # needs YOUTUBE_API_KEY; start with: docker compose --profile worker up -d
 
 volumes:
   pgdata:

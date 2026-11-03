@@ -12,10 +12,10 @@ from trend_radar.db import ConnectorRun, Item, RawResponse, Signal, engine
 RECENT = (datetime.now(timezone.utc) - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def search_body(ids):
+def search_body(ids, channel="UC1"):
     return {"items": [
         {"id": {"kind": "youtube#video", "videoId": i},
-         "snippet": {"title": f"GTA 6 Lucia &amp; Jason {i}", "channelId": "UC1", "channelTitle": "Chan",
+         "snippet": {"title": f"GTA 6 Lucia &amp; Jason {i}", "channelId": channel, "channelTitle": "Chan",
                      "publishedAt": RECENT}}
         for i in ids
     ]}
@@ -112,3 +112,26 @@ def test_4xx_is_not_retried(monkeypatch):
 
     assert len(calls) == 1
     assert last_run().status == "error"
+
+
+def test_channels_stores_subscribers_and_skips_hidden_counts(monkeypatch):
+    monkeypatch.setattr(config, "YOUTUBE_SEARCHES", [("GTA 6", "date"), ("GTA 6", "viewCount")])
+    youtube.discover(fake_api([(200, search_body(["a"], "UC1")), (200, search_body(["b"], "UC2"))])[0])
+    http, calls = fake_api([(200, {"items": [
+        {"id": "UC1", "snippet": {"title": "Big Channel"}, "statistics": {"subscriberCount": "5000"}},
+        {"id": "UC2", "snippet": {"title": "Shy Channel"}, "statistics": {"hiddenSubscriberCount": True}},
+    ]})])
+
+    youtube.channels(http)
+
+    with Session(engine) as s:
+        assert s.get(Item, ("youtube", "UC1")).item_type == "channel"
+        subs = s.scalars(select(Signal).where(Signal.metric_name == "subscribers")).all()
+    assert [(x.item_id, x.metric_value) for x in subs] == [("UC1", 5000)]
+
+    # the hourly video snapshot must not send channel ids to videos.list
+    http, calls = fake_api([(200, videos_body([]))])
+    requested = []
+    http.event_hooks["request"] = [lambda r: requested.append(r.url.params["id"])]
+    youtube.snapshot(http)
+    assert sorted(requested[0].split(",")) == ["a", "b"]
