@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trend Radar Architecture</title>
+<style>
+  :root {
+    --bg: #fafaf9; --surface: #ffffff; --text: #1c1917; --muted: #6b6560; --border: #e7e5e4;
+    --accent: #2563eb; --ok: #15803d; --warn: #b45309; --block: #b91c1c; --track: #f0eeec;
+    --ok-bg: #f0fdf4; --warn-bg: #fffbeb; --accent-bg: #eff6ff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f0e0d; --surface: #1a1817; --text: #f5f5f4; --muted: #a8a29e; --border: #2e2a27;
+      --accent: #60a5fa; --ok: #4ade80; --warn: #fbbf24; --block: #f87171; --track: #2a2725;
+      --ok-bg: #12251a; --warn-bg: #2a2110; --accent-bg: #142033;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f0e0d; --surface: #1a1817; --text: #f5f5f4; --muted: #a8a29e; --border: #2e2a27;
+    --accent: #60a5fa; --ok: #4ade80; --warn: #fbbf24; --block: #f87171; --track: #2a2725;
+    --ok-bg: #12251a; --warn-bg: #2a2110; --accent-bg: #142033;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 40px 16px 80px; }
+  h1 { font-size: 1.9rem; line-height: 1.2; margin: 0 0 6px; letter-spacing: -0.02em; }
+  h2 { font-size: 1.15rem; margin: 52px 0 14px; letter-spacing: -0.01em; }
+  p { margin: 0 0 12px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 0.875rem; }
+  code { font: 0.82em ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--track);
+         padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+
+  .lede { font-size: 1.05rem; max-width: 720px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 24px; }
+  .kpi .v { font-size: 1.6rem; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .kpi .l { color: var(--muted); font-size: 0.85rem; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 0 0 18px; font-size: 0.85rem; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { width: 14px; height: 14px; border-radius: 4px; border: 2px solid; display: inline-block; }
+  .sw.live { border-color: var(--ok); background: var(--ok-bg); }
+  .sw.wait { border-color: var(--warn); background: var(--warn-bg); }
+  .sw.next { border-color: var(--accent); background: var(--accent-bg); }
+  .sw.plan { border-color: var(--border); border-style: dashed; }
+
+  /* Architecture: stacked layers, data flows top to bottom */
+  .layer { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; align-items: start; }
+  .layer-head b { display: block; font-size: 0.95rem; }
+  .layer-head .n { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .layer-head .sub { color: var(--muted); font-size: 0.8rem; display: block; margin-top: 2px; }
+  .comps { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+  .comp { border-radius: 10px; padding: 12px 13px; border: 1.5px solid var(--border); background: var(--surface); min-width: 0; }
+  .comp.live { border-color: var(--ok); background: var(--ok-bg); }
+  .comp.wait { border-color: var(--warn); background: var(--warn-bg); }
+  .comp.next { border-color: var(--accent); background: var(--accent-bg); }
+  .comp.plan { border-style: dashed; }
+  .comp.plan b, .comp.plan p { color: var(--muted); }
+  .comp .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .comp b { font-size: 0.92rem; }
+  .comp p { margin: 4px 0 0; font-size: 0.8rem; color: var(--muted); }
+  .comp .meta { color: var(--text); font-variant-numeric: tabular-nums; }
+  .st { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+  .live .st { color: var(--ok); } .wait .st { color: var(--warn); } .next .st { color: var(--accent); } .plan .st { color: var(--muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+  .chips code { font-size: 0.72rem; background: var(--surface); border: 1px solid var(--border); }
+
+  .flowline { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; margin: 4px 0; }
+  .flowline div:last-child { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 0.8rem; padding: 6px 0 6px 18px; position: relative; }
+  .flowline div:last-child::before { content: "↓"; font-size: 1.1rem; position: absolute; left: 0; }
+
+  .here { margin: 14px 0; padding: 12px 16px; border-radius: 10px; border: 2px solid var(--block);
+          display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .here b { color: var(--block); white-space: nowrap; }
+
+  /* Hour schedule */
+  .sched { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; gap: 0 14px; }
+  .sched > div { padding: 10px 0; border-top: 1px solid var(--border); }
+  .sched > div:nth-child(-n+3) { border-top: 0; padding-top: 0; }
+  .sched .t { font: 600 0.9rem ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .sched .c { color: var(--muted); font-size: 0.85rem; text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* Tables */
+  .tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+  .tbl { border: 1.5px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); }
+  .tbl.live { border-color: var(--ok); } .tbl.plan { border-style: dashed; }
+  .tbl h3 { margin: 0; padding: 9px 12px; font: 600 0.88rem ui-monospace, SFMono-Regular, Menlo, monospace;
+            display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--border); }
+  .tbl h3 span { font: 400 0.75rem -apple-system, BlinkMacSystemFont, sans-serif; color: var(--muted); }
+  .tbl ul { list-style: none; margin: 0; padding: 8px 12px 10px; font: 0.78rem ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
+  .tbl li { padding: 1px 0; overflow-wrap: anywhere; }
+  .tbl li.k { color: var(--text); }
+  .tbl p { margin: 0; padding: 0 12px 10px; font-size: 0.78rem; color: var(--muted); }
+
+  /* Journey */
+  .journey { display: grid; gap: 0; }
+  .step { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; margin: 5px auto 0; border: 2px solid; }
+  .step.live .dot { border-color: var(--ok); background: var(--ok); }
+  .step.plan .dot { border-color: var(--muted); border-style: dashed; }
+  .step > div:last-child { padding-bottom: 16px; border-left: 0; }
+  .step .what { font-weight: 600; font-size: 0.92rem; }
+  .step .ex { font: 0.8rem ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); overflow-wrap: anywhere; }
+  .step.plan .what { color: var(--muted); }
+
+  /* Now vs target */
+  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .two h3 { margin: 0 0 10px; font-size: 1rem; }
+  .rows { display: grid; gap: 6px; font-size: 0.875rem; }
+  .row { display: flex; justify-content: space-between; gap: 10px; border-top: 1px solid var(--border); padding-top: 6px; }
+  .row:first-child { border-top: 0; padding-top: 0; }
+  .row .st { align-self: center; }
+  .row.live .st { color: var(--ok); } .row.plan .st { color: var(--muted); } .row.wait .st { color: var(--warn); }
+
+  /* Phases */
+  .phases { display: grid; gap: 8px; }
+  .ph { display: grid; grid-template-columns: 210px minmax(0, 1fr) 54px; gap: 12px; align-items: center; font-size: 0.875rem; }
+  .ph .bar { height: 8px; background: var(--track); border-radius: 99px; overflow: hidden; display: flex; }
+  .ph .bar i { background: var(--ok); display: block; }
+  .ph .bar i.part { background: var(--warn); opacity: 0.7; }
+  .ph .cnt { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .ph.now .name { font-weight: 650; }
+
+  .risks { display: grid; gap: 10px; }
+  .risk { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 12px; }
+  .risk .lvl { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding-top: 3px; }
+  .risk .lvl.h { color: var(--block); } .risk .lvl.m { color: var(--warn); } .risk .lvl.l { color: var(--muted); }
+  .risk b { display: block; font-size: 0.92rem; }
+  .risk span { color: var(--muted); font-size: 0.85rem; }
+
+  .next { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+  .next h3 { margin: 0 0 8px; font-size: 1rem; }
+  .next ol { margin: 0; padding-left: 20px; font-size: 0.92rem; }
+  .next li { margin-bottom: 6px; }
+
+  footer { margin-top: 56px; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 16px; }
+
+  @media (max-width: 640px) {
+    .layer, .flowline { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+    .flowline div:first-child { display: none; }
+    .ph { grid-template-columns: minmax(0, 1fr) 54px; }
+    .ph .bar { grid-column: 1 / -1; grid-row: 2; }
+    .sched { grid-template-columns: 64px minmax(0, 1fr); }
+    .sched .c { grid-column: 2; text-align: left; padding-top: 0; border-top: 0; }
+    .risk { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+<p class="muted small">Trend Radar · architecture and status · snapshot Tue Nov 3, 2026, 16:01 UTC</p>
+<h1>Architecture: where we stand</h1>
+<p class="lede"><b>Collection and storage are live.</b> YouTube, Twitch and Wikipedia flow into Postgres every hour.
+Nothing turns that data into answers yet: topics, scoring, the website and alerts are next.
+There's no server yet, so everything runs in Docker on your Mac.</p>
+
+<div class="kpis">
+  <div class="card kpi"><div class="v">2 / 3</div><div class="l">sources collecting (Twitch waiting)</div></div>
+  <div class="card kpi"><div class="v">97</div><div class="l">YouTube videos tracked</div></div>
+  <div class="card kpi"><div class="v">464</div><div class="l">metric readings stored</div></div>
+  <div class="card kpi"><div class="v">202</div><div class="l">of 10,000 YouTube units today</div></div>
+  <div class="card kpi"><div class="v">10</div><div class="l">tests passing</div></div>
+  <div class="card kpi"><div class="v">12 days</div><div class="l">to launch target (Nov 15)</div></div>
+</div>
+
+<h2>The system, top to bottom</h2>
+<div class="legend">
+  <span><i class="sw live"></i>Built and running</span>
+  <span><i class="sw wait"></i>Built, waiting on something outside us</span>
+  <span><i class="sw next"></i>Next up</span>
+  <span><i class="sw plan"></i>Planned</span>
+</div>
+
+<div class="layer">
+  <div class="layer-head"><span class="n">Layer 1</span><b>Sources</b><span class="sub">Official APIs only. No scraping.</span></div>
+  <div class="comps">
+    <div class="comp live"><div class="top"><b>YouTube Data API v3</b><span class="st">Live</span></div>
+      <p>Search for new videos, then stats for each one.</p>
+      <p class="meta">97 videos · 202 units used today</p></div>
+    <div class="comp wait"><div class="top"><b>Twitch Helix</b><span class="st">Waiting</span></div>
+      <p>Keys work. Twitch has no "Grand Theft Auto VI" category yet. Starts by itself once it exists.</p></div>
+    <div class="comp live"><div class="top"><b>Wikipedia Pageviews</b><span class="st">Live</span></div>
+      <p>Daily views for 6 articles. No key needed.</p>
+      <p class="meta">6 articles · 30 days of history</p></div>
+    <div class="comp plan"><div class="top"><b>Later sources</b><span class="st">After launch</span></div>
+      <p>Reddit, Threads, Bluesky, RSS, YouTube comment text, Twitch chat.</p></div>
+  </div>
+</div>
+
+<div class="flowline"><div></div><div>HTTPS on a schedule · retries on 429/5xx with backoff · keys in headers, never in URLs</div></div>
+
+<div class="layer">
+  <div class="layer-head"><span class="n">Layer 2</span><b>Worker</b><span class="sub">Python 3.12 · APScheduler · one Docker container</span></div>
+  <div class="comps">
+    <div class="comp live"><div class="top"><b>Collectors</b><span class="st">Live</span></div>
+      <p>One job per source, each run logged.</p>
+      <div class="chips"><code>youtube.discover</code><code>youtube.snapshot</code><code>youtube.channels</code><code>twitch.collect</code><code>wikipedia.collect</code></div></div>
+    <div class="comp live"><div class="top"><b>Guards</b><span class="st">Live</span></div>
+      <p>YouTube quota stop at 9,000 units/day · one run of a job at a time · skips sources with missing keys.</p></div>
+    <div class="comp next"><div class="top"><b>Cleanup</b><span class="st">Next</span></div>
+      <p>Delete raw API responses after 30 days (YouTube's storage rule).</p></div>
+    <div class="comp plan"><div class="top"><b>Brain + alert jobs</b><span class="st">Phase 3–5</span></div>
+      <p>Refresh aggregates, rebuild topics, score, send alerts and the digest.</p></div>
+  </div>
+</div>
+
+<div class="flowline"><div></div><div>upserts: re-runs overwrite the same hour instead of duplicating</div></div>
+
+<div class="layer">
+  <div class="layer-head"><span class="n">Layer 3</span><b>Storage</b><span class="sub">Postgres 17 + pgvector · 8.2 MB so far</span></div>
+  <div class="comps">
+    <div class="comp live"><div class="top"><b>items</b><span class="st">Live</span></div>
+      <p>One row per video / stream / clip / article.</p><p class="meta">103 rows</p></div>
+    <div class="comp live"><div class="top"><b>signals</b><span class="st">Live</span></div>
+      <p>One number per item per hour (views, likes, comments, viewers, pageviews).</p><p class="meta">464 rows</p></div>
+    <div class="comp live"><div class="top"><b>raw_responses</b><span class="st">Live</span></div>
+      <p>Every API reply as sent, for re-processing.</p><p class="meta">29 rows · 47 kB</p></div>
+    <div class="comp live"><div class="top"><b>connector_runs</b><span class="st">Live</span></div>
+      <p>Every job run: status, item count, quota used, error.</p><p class="meta">7 runs, 0 errors</p></div>
+  </div>
+</div>
+
+<div class="here"><b>▲ You are here</b><span>Everything above this line works. Everything below turns raw numbers into "what's rising", and doesn't exist yet.</span></div>
+
+<div class="layer">
+  <div class="layer-head"><span class="n">Layer 4</span><b>The brain</b><span class="sub">Phase 3 · Nov 6–8</span></div>
+  <div class="comps">
+    <div class="comp next"><div class="top"><b>Clean + aggregate</b><span class="st">Next</span></div>
+      <p>Views gained per hour per video. No duplicates, no negative growth.</p></div>
+    <div class="comp plan"><div class="top"><b>Topics</b><span class="st">Planned</span></div>
+      <p>Clean titles, group videos by keyword: "safehouse", "PS5 Pro", "map size"…</p></div>
+    <div class="comp plan"><div class="top"><b>Score + filter</b><span class="st">Planned</span></div>
+      <p>Momentum vs normal; drop spam (huge views, almost no comments) and reuploads.</p></div>
+  </div>
+</div>
+
+<div class="flowline"><div></div><div>tables: topics · topic_items · topic_scores</div></div>
+
+<div class="layer">
+  <div class="layer-head"><span class="n">Layer 5</span><b>Product</b><span class="sub">Phases 4–5 · Nov 9–12</span></div>
+  <div class="comps">
+    <div class="comp plan"><div class="top"><b>API</b><span class="st">Planned</span></div>
+      <p>FastAPI, same image as the worker.</p>
+      <div class="chips"><code>/api/health</code><code>/api/topics/top</code><code>/api/topics/{slug}</code><code>/api/videos/rising</code><code>POST /api/waitlist</code></div></div>
+    <div class="comp plan"><div class="top"><b>Website</b><span class="st">Planned</span></div>
+      <p>Next.js: home (top 5), topic page with 7-day chart, rising videos, about/privacy.</p></div>
+    <div class="comp plan"><div class="top"><b>Delivery</b><span class="st">Planned</span></div>
+      <p>Daily email digest (Resend), spike alerts to a Telegram channel, top-5 card for video.</p></div>
+  </div>
+</div>
+
+<div class="flowline"><div></div><div>Caddy (HTTPS) on the server</div></div>
+
+<div class="layer">
+  <div class="layer-head"><span class="n">Layer 6</span><b>People</b></div>
+  <div class="comps">
+    <div class="comp plan"><div class="top"><b>Creators</b><span class="st">Launch</span></div>
+      <p>Phone first. See today's rising topics, join the waitlist, follow the Telegram channel.</p></div>
+  </div>
+</div>
+
+<h2>One hour inside the worker</h2>
+<div class="card">
+  <div class="sched">
+    <div class="t">:00</div><div><code>youtube.discover</code> searches "GTA 6", newest and most viewed in the last 24h</div><div class="c">200 units</div>
+    <div class="t">:05</div><div><code>youtube.snapshot</code> views, likes, comments for every video under 7 days old</div><div class="c">1 unit / 50 videos</div>
+    <div class="t">:10</div><div><code>twitch.collect</code> live streams + top clips (currently records "waiting")</div><div class="c">~13 calls</div>
+    <div class="t">every 6h</div><div><code>wikipedia.collect</code> daily pageviews, re-fetching the last 30 days</div><div class="c">6 calls</div>
+    <div class="t">06:15</div><div><code>youtube.channels</code> subscriber counts, once a day (first run tomorrow)</div><div class="c">1 unit / 50 channels</div>
+  </div>
+</div>
+
+<h2>What's stored</h2>
+<div class="tables">
+  <div class="tbl live"><h3>items <span>103 rows</span></h3><ul>
+    <li class="k">source, item_id (key)</li><li>item_type: video · stream · clip · article · channel</li>
+    <li>title, url</li><li>channel_id, channel_title</li><li>published_at, first_seen_at</li></ul></div>
+  <div class="tbl live"><h3>signals <span>464 rows</span></h3><ul>
+    <li class="k">source, item_id → items</li><li>metric_name: views · likes · comments · viewers · pageviews · subscribers</li>
+    <li>metric_value</li><li class="k">captured_at (hour or day bucket)</li></ul>
+    <p>Unique per item, metric and bucket. That's why re-runs never duplicate.</p></div>
+  <div class="tbl live"><h3>raw_responses <span>29 rows</span></h3><ul>
+    <li>source, endpoint</li><li>fetched_at</li><li>payload (full JSON)</li></ul>
+    <p>Kept 30 days (cleanup job next).</p></div>
+  <div class="tbl live"><h3>connector_runs <span>7 rows</span></h3><ul>
+    <li>source, job</li><li>started_at, finished_at</li><li>status: ok · error · waiting</li><li>items_count, quota_used, error</li></ul>
+    <p>The quota guard sums today's <code>quota_used</code>.</p></div>
+  <div class="tbl plan"><h3>topics · topic_items · topic_scores <span>Phase 3</span></h3>
+    <p style="padding-top:10px">Stable topic IDs, which videos belong to each, hourly momentum score + flags.</p></div>
+  <div class="tbl plan"><h3>waitlist · alerts_sent <span>Phase 4–5</span></h3>
+    <p style="padding-top:10px">Emails (validated, rate-limited) and one alert per topic per day.</p></div>
+</div>
+
+<h2>One video's journey</h2>
+<div class="card journey">
+  <div class="step live"><div class="dot"></div><div><div class="what">Found by search (:00)</div>
+    <div class="ex">"GTA 6's Safehouse System FULLY Explained..." · Hazard · published Nov 2, 20:04</div></div></div>
+  <div class="step live"><div class="dot"></div><div><div class="what">Saved once in <code>items</code></div>
+    <div class="ex">youtube / video_id · title · channel · published_at</div></div></div>
+  <div class="step live"><div class="dot"></div><div><div class="what">Measured every hour in <code>signals</code></div>
+    <div class="ex">15:00 → 233,353 views · 2,847 likes · 275 comments (next reading at 16:05)</div></div></div>
+  <div class="step plan"><div class="dot"></div><div><div class="what">Growth per hour (Phase 3.1)</div>
+    <div class="ex">e.g. +18,500 views/h vs its 24h average</div></div></div>
+  <div class="step plan"><div class="dot"></div><div><div class="what">Grouped into a topic (Phase 3.2)</div>
+    <div class="ex">"Safehouses": this video + others that mention it</div></div></div>
+  <div class="step plan"><div class="dot"></div><div><div class="what">Scored and filtered (Phase 3.3)</div>
+    <div class="ex">momentum high, not spam → RISING</div></div></div>
+  <div class="step plan"><div class="dot"></div><div><div class="what">Shown to creators (Phases 4–5)</div>
+    <div class="ex">home page card · Telegram alert · morning email</div></div></div>
+</div>
+<p class="muted small" style="margin-top:8px">Grey steps are illustrative: the numbers show the idea, not real output.</p>
+
+<h2>Where it runs: now vs. target</h2>
+<div class="two">
+  <div class="card"><h3>Now · your Mac</h3><div class="rows">
+    <div class="row live"><span>Docker: postgres + worker</span><span class="st">Running</span></div>
+    <div class="row live"><span>Postgres on 127.0.0.1 only</span><span class="st">Running</span></div>
+    <div class="row live"><span>Keys in <code>.env</code> (gitignored)</span><span class="st">Done</span></div>
+    <div class="row live"><span>Code on GitHub (private)</span><span class="st">Done</span></div>
+    <div class="row wait"><span>Collects only while the Mac is on and awake</span><span class="st">Risk</span></div>
+  </div></div>
+  <div class="card"><h3>Target · VPS (Hetzner)</h3><div class="rows">
+    <div class="row plan"><span>Caddy HTTPS → web, api, /admin</span><span class="st">Blocked: no VPS</span></div>
+    <div class="row plan"><span>Ansible playbook sets up the server</span><span class="st">Blocked</span></div>
+    <div class="row plan"><span>GitHub Actions → GHCR → deploy</span><span class="st">Planned</span></div>
+    <div class="row plan"><span>Nightly backup → Cloudflare R2</span><span class="st">Planned</span></div>
+    <div class="row plan"><span>Sentry · Healthchecks · UptimeRobot</span><span class="st">Planned</span></div>
+    <div class="row plan"><span>Move Mac history over with <code>pg_dump</code></span><span class="st">At cut-over</span></div>
+  </div></div>
+</div>
+
+<h2>Progress by phase</h2>
+<div class="card phases">
+  <div class="ph"><span class="name">0 · Accounts (Nov 3)</span><span class="bar"><i style="width:33%"></i><i class="part" style="width:40%"></i></span><span class="cnt">1 / 3</span></div>
+  <div class="ph"><span class="name">1 · Server + YouTube</span><span class="bar"><i style="width:20%"></i><i class="part" style="width:16%"></i></span><span class="cnt">1 / 5</span></div>
+  <div class="ph now"><span class="name">2 · More sources + safety</span><span class="bar"><i style="width:25%"></i><i class="part" style="width:20%"></i></span><span class="cnt">2 / 8</span></div>
+  <div class="ph"><span class="name">3 · The brain (Nov 6–8)</span><span class="bar"></span><span class="cnt">0 / 3</span></div>
+  <div class="ph"><span class="name">4 · The product (Nov 9–11)</span><span class="bar"></span><span class="cnt">0 / 6</span></div>
+  <div class="ph"><span class="name">5 · Delivery (Nov 12)</span><span class="bar"></span><span class="cnt">0 / 3</span></div>
+  <div class="ph"><span class="name">6 · Safety + testing</span><span class="bar"></span><span class="cnt">0 / 4</span></div>
+  <div class="ph"><span class="name">7 · Launch (Nov 15–19)</span><span class="bar"></span><span class="cnt">0 / 3</span></div>
+</div>
+<p class="muted small" style="margin-top:8px">Green = tasks done. Amber = in progress (e.g. YouTube real run done, uploads-playlist sub-task left). Counts from <code>docs/PLAN.md</code>.</p>
+
+<h2>Risks and gaps</h2>
+<div class="card risks">
+  <div class="risk"><span class="lvl h">High</span><div><b>History lives on one laptop</b>
+    <span>No server and no backups yet. If Docker stops, we lose those hours for good; if the disk dies, everything is gone. Fixed by the VPS + nightly R2 backup.</span></div></div>
+  <div class="risk"><span class="lvl m">Medium</span><div><b>Spam tops the raw view counts</b>
+    <span>#1 right now: 2.6M views, 18 comments, hashtag-only title. Scoring has to filter this (Phase 3.3).</span></div></div>
+  <div class="risk"><span class="lvl m">Medium</span><div><b>YouTube quota climbs as videos pile up</b>
+    <span>Discovery is a fixed 4,800/day; snapshots grow until the 7-day window fills (~Nov 10). Rough worst case nears the 9,000 stop. If it does: check older videos every 3h instead of every hour.</span></div></div>
+  <div class="risk"><span class="lvl m">Medium</span><div><b>Many languages</b>
+    <span>Chinese, Portuguese, Arabic, French in the top 15. Your decision: English-only or all, before topics are built.</span></div></div>
+  <div class="risk"><span class="lvl l">Low</span><div><b>No Twitch data until the category exists</b>
+    <span>Handled: the job waits and starts by itself. Likely around release day.</span></div></div>
+  <div class="risk"><span class="lvl l">Low</span><div><b>Nobody notices if the worker dies</b>
+    <span>No monitoring yet. Healthchecks.io + Sentry come with the server (P2.6).</span></div></div>
+</div>
+
+<h2>Next steps</h2>
+<div class="next">
+  <div class="card"><h3>Me</h3><ol>
+    <li>30-day cleanup job for <code>raw_responses</code>.</li>
+    <li>Phase 3.1: hourly growth numbers per video.</li>
+    <li>Phase 3.2–3.3: topics, momentum score, spam filter, then the top 20 for your review.</li>
+  </ol></div>
+  <div class="card"><h3>You</h3><ol>
+    <li>Phase 3 now, or the website backend first?</li>
+    <li>English-only YouTube, or all languages?</li>
+    <li>Keep Docker running; when ready, buy the VPS + domain (keys guide, section C).</li>
+  </ol></div>
+</div>
+
+<footer>Unofficial, fan-made tool. Not affiliated with Rockstar Games or Take-Two Interactive. Numbers are a snapshot from the local database at 16:01 UTC, Nov 3, 2026.</footer>
+</main>
+</body>
+</html>
