@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trend Radar Report 1</title>
+<style>
+  :root {
+    --bg: #fafaf9; --surface: #ffffff; --text: #1c1917; --muted: #6b6560; --border: #e7e5e4;
+    --accent: #2563eb; --ok: #15803d; --warn: #b45309; --block: #b91c1c; --track: #f0eeec;
+    --q-search: #2563eb; --q-snap: #0d9488; --q-chan: #7c3aed;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f0e0d; --surface: #1a1817; --text: #f5f5f4; --muted: #a8a29e; --border: #2e2a27;
+      --accent: #60a5fa; --ok: #4ade80; --warn: #fbbf24; --block: #f87171; --track: #2a2725;
+      --q-search: #60a5fa; --q-snap: #2dd4bf; --q-chan: #a78bfa;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f0e0d; --surface: #1a1817; --text: #f5f5f4; --muted: #a8a29e; --border: #2e2a27;
+    --accent: #60a5fa; --ok: #4ade80; --warn: #fbbf24; --block: #f87171; --track: #2a2725;
+    --q-search: #60a5fa; --q-snap: #2dd4bf; --q-chan: #a78bfa;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; }
+  main { max-width: 880px; margin: 0 auto; padding: 40px 16px 80px; }
+  h1 { font-size: 1.9rem; line-height: 1.2; margin: 0 0 6px; letter-spacing: -0.02em; }
+  h2 { font-size: 1.15rem; margin: 48px 0 14px; letter-spacing: -0.01em; }
+  p { margin: 0 0 12px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 0.875rem; }
+  code { font: 0.85em ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--track);
+         padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-top: 28px; }
+  .kpi .v { font-size: 1.7rem; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .kpi .l { color: var(--muted); font-size: 0.85rem; }
+
+  .phase { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 14px 0; border-top: 1px solid var(--border); }
+  .phase:first-child { border-top: 0; padding-top: 0; }
+  .phase .name { font-weight: 600; }
+  .phase .dates { color: var(--muted); font-size: 0.85rem; font-weight: 400; margin-left: 6px; }
+  .phase .detail { grid-column: 1 / -1; color: var(--muted); font-size: 0.875rem; }
+  .bar { grid-column: 1 / -1; height: 8px; background: var(--track); border-radius: 99px; overflow: hidden; display: flex; }
+  .bar .done { background: var(--ok); }
+  .bar .part { background: var(--warn); opacity: 0.7; }
+  .pill { font-size: 0.75rem; font-weight: 600; padding: 2px 9px; border-radius: 99px; border: 1px solid currentColor; white-space: nowrap; align-self: start; }
+  .pill.ok { color: var(--ok); } .pill.warn { color: var(--warn); } .pill.block { color: var(--block); } .pill.idle { color: var(--muted); }
+
+  ol.timeline { list-style: none; padding: 0; margin: 0; counter-reset: s; }
+  ol.timeline li { position: relative; padding: 0 0 18px 40px; counter-increment: s; }
+  ol.timeline li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 26px; height: 26px;
+    border-radius: 50%; background: var(--surface); border: 1px solid var(--border); font-size: 0.8rem;
+    display: grid; place-items: center; font-weight: 600; }
+  ol.timeline li::after { content: ""; position: absolute; left: 13px; top: 28px; bottom: 2px; width: 1px; background: var(--border); }
+  ol.timeline li:last-child::after { display: none; }
+  ol.timeline b { display: block; }
+
+  .flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .node { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; flex: 1 1 160px; }
+  .node b { display: block; font-size: 0.95rem; }
+  .node span { color: var(--muted); font-size: 0.8rem; }
+  .arrow { color: var(--muted); font-size: 1.2rem; }
+
+  .decisions { display: grid; gap: 10px; }
+  .decision { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .decision .what { font-weight: 600; }
+  .decision .why { color: var(--text); }
+  .decision .later { color: var(--muted); font-size: 0.85rem; }
+  .tag { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); }
+
+  .quota { display: flex; height: 26px; border-radius: 6px; overflow: hidden; background: var(--track); position: relative; }
+  .quota div { height: 100%; }
+  .quota .stop { position: absolute; top: -4px; bottom: -4px; left: 90%; width: 2px; background: var(--block); }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 10px; font-size: 0.85rem; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 9px 8px; border-top: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 0.8rem; border-top: 0; }
+  .scroll { overflow-x: auto; }
+
+  ul.checks { list-style: none; padding: 0; margin: 0; }
+  ul.checks li { padding: 8px 0 8px 28px; position: relative; border-top: 1px solid var(--border); }
+  ul.checks li:first-child { border-top: 0; }
+  ul.checks li::before { content: "○"; position: absolute; left: 4px; color: var(--warn); font-weight: 700; }
+  ul.checks li.next::before { content: "→"; color: var(--accent); }
+  footer { margin-top: 56px; color: var(--muted); font-size: 0.8rem; }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <div class="tag">Report 1 · Nov 3, 2026</div>
+  <h1>Trend Radar: Phase 0, plus a head start on Phase 1</h1>
+  <p class="muted">Status: <b style="color:var(--warn)">in progress</b>. The repo and plan are set up, and the YouTube collector is built and tested locally. Phase 0 isn't finished yet because it waits on accounts and keys only you can create.</p>
+</header>
+
+<section class="kpis" aria-label="Key numbers">
+  <div class="card kpi"><div class="v">2 / 35</div><div class="l">launch tasks fully done</div></div>
+  <div class="card kpi"><div class="v">12 days</div><div class="l">to launch target (Nov 15)</div></div>
+  <div class="card kpi"><div class="v">16 days</div><div class="l">to GTA 6 release (Nov 19)</div></div>
+  <div class="card kpi"><div class="v">5 / 5</div><div class="l">tests passing</div></div>
+</section>
+
+<h2>How far we are</h2>
+<div class="card">
+  <div class="phase">
+    <div class="name">Phase 0 · Accounts &amp; access <span class="dates">Nov 3</span></div>
+    <span class="pill warn">1 of 3</span>
+    <div class="bar"><div class="done" style="width:33%"></div><div class="part" style="width:33%"></div></div>
+    <div class="detail">✓ Private repo · ◐ accounts list sent, keys not created yet · ◐ tools installed except <code>ansible-lint</code></div>
+  </div>
+  <div class="phase">
+    <div class="name">Phase 1 · Server up, YouTube collecting <span class="dates">Nov 3–4</span></div>
+    <span class="pill warn">1 of 5</span>
+    <div class="bar"><div class="done" style="width:20%"></div><div class="part" style="width:18%"></div></div>
+    <div class="detail">✓ Database schema · ◐ YouTube collector built and tested, waits on the API key · ✕ server tasks blocked (no VPS yet)</div>
+  </div>
+  <div class="phase">
+    <div class="name">Phase 2 · More sources + safety basics <span class="dates">Nov 5</span></div>
+    <span class="pill idle">0 of 8</span><div class="bar"></div>
+  </div>
+  <div class="phase">
+    <div class="name">Phase 3 · Topics &amp; scoring <span class="dates">Nov 6–8</span></div>
+    <span class="pill idle">0 of 3</span><div class="bar"></div>
+  </div>
+  <div class="phase">
+    <div class="name">Phase 4 · The website <span class="dates">Nov 9–11</span></div>
+    <span class="pill idle">0 of 6</span><div class="bar"></div>
+  </div>
+  <div class="phase">
+    <div class="name">Phase 5 · Alerts, digest, content card <span class="dates">Nov 12</span></div>
+    <span class="pill idle">0 of 3</span><div class="bar"></div>
+  </div>
+  <div class="phase">
+    <div class="name">Phase 6 · Safety net &amp; user testing <span class="dates">Nov 13–14</span></div>
+    <span class="pill idle">0 of 4</span><div class="bar"></div>
+  </div>
+  <div class="phase">
+    <div class="name">Phase 7 · Launch <span class="dates">Nov 15–19</span></div>
+    <span class="pill idle">0 of 3</span><div class="bar"></div>
+  </div>
+  <p class="small muted" style="margin:14px 0 0">Green = done and verified. Amber = built but waiting on something (a key or a real run).</p>
+</div>
+
+<h2>What we did</h2>
+<ol class="timeline">
+  <li><b>Reviewed the original plan</b><span class="muted">Found that it put 10 infrastructure tasks ahead of data collection, roughly three times more work than fits in 12 days, and a few gaps (no YouTube quota budget, no method for keeping topic IDs stable, no privacy page).</span></li>
+  <li><b>Rewrote the brief (v2)</b><span class="muted">Same product, scoped for launch. Original kept as the first git commit. See <code>docs/BRIEF.md</code>.</span></li>
+  <li><b>Created the private GitHub repo</b><span class="muted"><code>AganzeFelicite/trend-radar</code>, verified <code>PRIVATE</code>. <code>.gitignore</code> blocks every <code>.env</code> file.</span></li>
+  <li><b>Accounts checklist and <code>.env.example</code></b><span class="muted">Every variable the launch needs, each with its minimum permission noted.</span></li>
+  <li><b>Local Postgres and the database schema (P1.4)</b><span class="muted">Four tables: <code>items</code>, <code>signals</code>, <code>raw_responses</code>, <code>connector_runs</code>.</span></li>
+  <li><b>YouTube collector (P1.5)</b><span class="muted">Hourly discovery and snapshots, quota guard, retries, response validation, 5 tests, and a worker Docker image.</span></li>
+</ol>
+
+<h2>What exists right now</h2>
+<div class="flow" role="img" aria-label="YouTube API feeds the worker, which writes to Postgres">
+  <div class="node"><b>YouTube Data API</b><span>search.list · videos.list</span></div>
+  <div class="arrow" aria-hidden="true">→</div>
+  <div class="node"><b>Worker</b><span>discover: every hour<br>snapshot: every hour at :05</span></div>
+  <div class="arrow" aria-hidden="true">→</div>
+  <div class="node"><b>Postgres</b><span>items · signals · raw_responses · connector_runs</span></div>
+</div>
+<p class="small muted" style="margin-top:10px">Runs on your Mac in Docker today. The same image moves to the server once the VPS exists.</p>
+
+<h2>Why we did it this way</h2>
+<div class="decisions">
+  <div class="card decision">
+    <div class="tag">Order</div>
+    <div class="what">Data collection first, infrastructure polish later</div>
+    <div class="why">Momentum is measured against history. If the collector starts late, those days of data are gone for good. Infrastructure can be rebuilt at any time.</div>
+  </div>
+  <div class="card decision">
+    <div class="tag">Cut</div>
+    <div class="what">No Terraform before launch</div>
+    <div class="why">It manages one VPS, a few DNS records and one bucket. Remote state, a plan-on-PR workflow and a rebuild drill would cost 2–3 days. The manual steps get written down instead.</div>
+    <div class="later">Comes back in P8.1, after launch.</div>
+  </div>
+  <div class="card decision">
+    <div class="tag">Cut</div>
+    <div class="what">No Redis</div>
+    <div class="why">With a single worker, APScheduler's <code>max_instances=1</code> acts as the job lock. Quota is summed in Postgres, alert dedupe is a unique constraint, and page caching is Next.js <code>revalidate</code>. That's one fewer service to run and secure.</div>
+    <div class="later">Add it if we ever run more than one worker.</div>
+  </div>
+  <div class="card decision">
+    <div class="tag">Cut</div>
+    <div class="what">No dbt, no table partitioning</div>
+    <div class="why">About 1M signal rows by launch is small for Postgres. A few SQL views cover the aggregations. Both add moving parts without solving a problem we have yet.</div>
+    <div class="later">dbt when the SQL gets hard to manage; partitioning around 100M rows.</div>
+  </div>
+  <div class="card decision">
+    <div class="tag">Cut</div>
+    <div class="what">No login at launch</div>
+    <div class="why">Nothing sits behind a login until Pro exists. The waitlist is one form, and the admin page uses Caddy's password protection.</div>
+    <div class="later">Auth.js arrives with Stripe and Pro (P8.3).</div>
+  </div>
+  <div class="card decision">
+    <div class="tag">Design</div>
+    <div class="what">Keyword topics first, embeddings only if needed</div>
+    <div class="why">HDBSCAN gives clusters new labels on every run, so "the same topic keeps the same ID" needs extra matching logic. Keyword topics use a slug as the ID, so they're stable automatically. Embeddings would also add about 2 GB of torch to the image.</div>
+    <div class="later">Switch if your top-20 review finds too many misses or duplicates.</div>
+  </div>
+  <div class="card decision">
+    <div class="tag">Design</div>
+    <div class="what">One Python package at the repo root</div>
+    <div class="why">The worker and the API share the same database models. One package means one image to build and deploy, and PyCharm detects the <code>.venv</code> automatically.</div>
+  </div>
+  <div class="card decision">
+    <div class="tag">Security</div>
+    <div class="what">The YouTube key goes in a header, not the URL</div>
+    <div class="why">HTTP errors include the request URL. With the key in the URL, it would leak into <code>connector_runs.error</code> and later into Sentry. In the <code>X-Goog-Api-Key</code> header it never shows up.</div>
+  </div>
+  <div class="card decision">
+    <div class="tag">Correctness</div>
+    <div class="what">Quota is charged before every attempt, including retries</div>
+    <div class="why">YouTube bills failed requests too. Counting only successful calls would let us go over the daily limit without noticing.</div>
+  </div>
+  <div class="card decision">
+    <div class="tag">Correctness</div>
+    <div class="what">Snapshots are rounded to the hour, with a unique constraint</div>
+    <div class="why">If a job runs twice in the same hour (a restart or a retry), the second run updates the same row instead of creating a duplicate, so growth rates aren't skewed.</div>
+  </div>
+  <div class="card decision">
+    <div class="tag">Design</div>
+    <div class="what">Two searches an hour: newest and most-viewed</div>
+    <div class="why">"Newest" catches fresh uploads. "Most viewed in the last 24h" catches videos already taking off, which is what a trend radar most needs. Together they use 4,800 of the 10,000 daily units.</div>
+  </div>
+  <div class="card decision">
+    <div class="tag">Safety</div>
+    <div class="what">Tests use their own database</div>
+    <div class="why">The tests wipe and rebuild their tables each run. Pointing them at the real database would erase collected history.</div>
+  </div>
+  <div class="card decision">
+    <div class="tag">Risk</div>
+    <div class="what">Keep "GTA" out of the domain</div>
+    <div class="why">Take-Two is known for takedowns. Using the trademark in the product's own domain is a bigger risk than mentioning it in page content.</div>
+  </div>
+</div>
+
+<h2>YouTube quota budget (per day)</h2>
+<div class="card">
+  <div class="quota" role="img" aria-label="Search 4,800 units, snapshots about 960, channels about 50, out of 10,000; guard stops at 9,000">
+    <div style="width:48%; background:var(--q-search)"></div>
+    <div style="width:9.6%; background:var(--q-snap)"></div>
+    <div style="width:0.6%; background:var(--q-chan)"></div>
+    <div class="stop" title="Guard stops at 9,000"></div>
+  </div>
+  <div class="legend">
+    <span><i style="background:var(--q-search)"></i>Search 4,800</span>
+    <span><i style="background:var(--q-snap)"></i>Snapshots ~960</span>
+    <span><i style="background:var(--q-chan)"></i>Channels ~50 (Phase 2)</span>
+    <span><i style="background:var(--block)"></i>Guard stops at 9,000</span>
+  </div>
+  <p class="small muted" style="margin:10px 0 0">The daily limit is 10,000 units. A quota increase needs a Google audit that takes weeks, so this is our ceiling through launch.</p>
+</div>
+
+<h2>How it was verified</h2>
+<div class="card scroll">
+  <table>
+    <thead><tr><th>Check</th><th>How</th><th>Result</th></tr></thead>
+    <tbody>
+      <tr><td>Repo is private</td><td><code>gh repo view --json visibility</code></td><td style="color:var(--ok)">PRIVATE</td></tr>
+      <tr><td>Migrations up, down, up</td><td><code>alembic upgrade head</code> / <code>downgrade base</code> / <code>upgrade head</code></td><td style="color:var(--ok)">Clean</td></tr>
+      <tr><td>Models match the migration</td><td><code>alembic check</code></td><td style="color:var(--ok)">No drift</td></tr>
+      <tr><td>No duplicate videos on re-run</td><td>Test, fake YouTube API</td><td style="color:var(--ok)">Pass</td></tr>
+      <tr><td>Hourly signals, same-hour re-run updates the row</td><td>Test, fake YouTube API</td><td style="color:var(--ok)">Pass</td></tr>
+      <tr><td>Quota guard stops the job</td><td>Test, limit set to 150</td><td style="color:var(--ok)">Pass</td></tr>
+      <tr><td>429/5xx retried, other 4xx not</td><td>Tests</td><td style="color:var(--ok)">Pass</td></tr>
+      <tr><td>Worker image</td><td><code>docker compose --profile worker run worker</code></td><td style="color:var(--ok)">Builds, non-root, stops without key</td></tr>
+      <tr><td>Real YouTube API run</td><td>Needs the key</td><td style="color:var(--warn)">Not yet</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>Waiting on you</h2>
+<div class="card">
+  <ul class="checks">
+    <li><b>YouTube API key</b>: the most urgent item. Once it's in <code>.env</code>, your Mac starts building history.</li>
+    <li><b>VPS + domain</b>: unblocks P1.1–P1.3. Hetzner or DigitalOcean?</li>
+    <li><b>Install ansible-lint</b>: <code>brew install ansible-lint</code></li>
+    <li><b>Other accounts</b>: Twitch, R2, Resend, Telegram, Sentry, Healthchecks.io</li>
+    <li><b>Slow applications</b>: Reddit, Threads, Google Trends (submit today)</li>
+    <li><b>10–20 GTA YouTube channels</b>: enables cheap discovery through uploads playlists (1 unit instead of 100)</li>
+  </ul>
+</div>
+
+<h2>Next up</h2>
+<div class="card">
+  <ul class="checks">
+    <li class="next"><b>Wikipedia pageviews connector (P2.2)</b>: needs no key, so real data comes in right away</li>
+    <li class="next"><b>Twitch connector (P2.1)</b>: once the Twitch app exists</li>
+    <li class="next"><b>Real YouTube run</b>: once the key exists, then P1.5 can be ticked</li>
+    <li class="next"><b>Server setup (P1.1–P1.3)</b>: once the VPS and domain exist</li>
+  </ul>
+</div>
+
+<footer>Generated from <code>docs/PLAN.md</code> · commit 466c8ad · Trend Radar is an unofficial fan-made tool, not affiliated with Rockstar Games or Take-Two Interactive.</footer>
+</main>
+</body>
+</html>

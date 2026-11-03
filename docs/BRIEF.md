@@ -18,7 +18,7 @@ Each task in `docs/PLAN.md` keeps only its **task-specific checks** plus one lin
 Rules:
 - One task at a time, in order. Don't start the next phase until the current phase's "Phase done when" is met. **Exception:** once data collection is running (P1.5), it never waits on anything else.
 - Never tick a check without actually checking it. If it can't be verified yet, leave it unchecked and say why.
-- End of each phase: short summary to me (done, verified, blocked, next).
+- End of each phase: short summary to me (done, verified, blocked, next), **and a report at `docs/reports/phase-N.html`**: what we did, how far we are (tasks done vs total, days left), **why** each notable decision was made, how things were verified, what's blocked, and what's next. Self-contained HTML (no external assets), readable on a phone, light + dark mode. Open it in the browser when done.
 - A task bigger than expected gets split into sub-tasks in `docs/PLAN.md`.
 
 ---
