@@ -3,149 +3,157 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Trend Radar Architecture</title>
+<title>Trend Radar Data Architecture</title>
 <style>
   :root {
     --bg: #fafaf9; --surface: #ffffff; --text: #1c1917; --muted: #6b6560; --border: #e7e5e4;
     --accent: #2563eb; --ok: #15803d; --warn: #b45309; --block: #b91c1c; --track: #f0eeec;
-    --ok-bg: #f0fdf4; --warn-bg: #fffbeb; --accent-bg: #eff6ff;
+    --bronze: #a16207; --silver: #64748b; --gold: #ca8a04; --serve: #7c3aed;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --bg: #0f0e0d; --surface: #1a1817; --text: #f5f5f4; --muted: #a8a29e; --border: #2e2a27;
       --accent: #60a5fa; --ok: #4ade80; --warn: #fbbf24; --block: #f87171; --track: #2a2725;
-      --ok-bg: #12251a; --warn-bg: #2a2110; --accent-bg: #142033;
+      --bronze: #d6a35c; --silver: #94a3b8; --gold: #facc15; --serve: #a78bfa;
     }
   }
   :root[data-theme="dark"] {
     --bg: #0f0e0d; --surface: #1a1817; --text: #f5f5f4; --muted: #a8a29e; --border: #2e2a27;
     --accent: #60a5fa; --ok: #4ade80; --warn: #fbbf24; --block: #f87171; --track: #2a2725;
-    --ok-bg: #12251a; --warn-bg: #2a2110; --accent-bg: #142033;
+    --bronze: #d6a35c; --silver: #94a3b8; --gold: #facc15; --serve: #a78bfa;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text);
          font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; }
-  main { max-width: 1040px; margin: 0 auto; padding: 40px 16px 80px; }
+  main { max-width: 1080px; margin: 0 auto; padding: 40px 16px 80px; }
   h1 { font-size: 1.9rem; line-height: 1.2; margin: 0 0 6px; letter-spacing: -0.02em; }
-  h2 { font-size: 1.15rem; margin: 52px 0 14px; letter-spacing: -0.01em; }
+  h2 { font-size: 1.2rem; margin: 56px 0 6px; letter-spacing: -0.01em; }
+  h2 + .muted { margin-bottom: 16px; }
+  h3 { font-size: 0.95rem; margin: 0 0 8px; }
   p { margin: 0 0 12px; }
   .muted { color: var(--muted); }
   .small { font-size: 0.875rem; }
   code { font: 0.82em ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--track);
          padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+  pre { margin: 0; font: 0.78rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--track);
+        padding: 10px 12px; border-radius: 8px; overflow-x: auto; }
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+  .lede { font-size: 1.05rem; max-width: 760px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 0; }
+  .tags span { font-size: 0.78rem; border: 1px solid var(--border); border-radius: 99px; padding: 2px 10px; color: var(--muted); background: var(--surface); }
 
-  .lede { font-size: 1.05rem; max-width: 720px; }
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 24px; }
-  .kpi .v { font-size: 1.6rem; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .kpi .l { color: var(--muted); font-size: 0.85rem; }
+  .kpi .v { font-size: 1.5rem; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .kpi .l { color: var(--muted); font-size: 0.82rem; }
 
-  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 0 0 18px; font-size: 0.85rem; color: var(--muted); }
-  .legend span { display: inline-flex; align-items: center; gap: 6px; }
-  .sw { width: 14px; height: 14px; border-radius: 4px; border: 2px solid; display: inline-block; }
-  .sw.live { border-color: var(--ok); background: var(--ok-bg); }
-  .sw.wait { border-color: var(--warn); background: var(--warn-bg); }
-  .sw.next { border-color: var(--accent); background: var(--accent-bg); }
-  .sw.plan { border-color: var(--border); border-style: dashed; }
+  .chip { font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;
+          padding: 2px 8px; border-radius: 99px; border: 1px solid currentColor; align-self: start; }
+  .chip.live { color: var(--ok); } .chip.part, .chip.wait { color: var(--warn); } .chip.next { color: var(--accent); }
+  .chip.plan { color: var(--muted); border-style: dashed; } .chip.block { color: var(--block); }
 
-  /* Architecture: stacked layers, data flows top to bottom */
-  .layer { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; align-items: start; }
-  .layer-head b { display: block; font-size: 0.95rem; }
-  .layer-head .n { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-  .layer-head .sub { color: var(--muted); font-size: 0.8rem; display: block; margin-top: 2px; }
-  .comps { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
-  .comp { border-radius: 10px; padding: 12px 13px; border: 1.5px solid var(--border); background: var(--surface); min-width: 0; }
-  .comp.live { border-color: var(--ok); background: var(--ok-bg); }
-  .comp.wait { border-color: var(--warn); background: var(--warn-bg); }
-  .comp.next { border-color: var(--accent); background: var(--accent-bg); }
-  .comp.plan { border-style: dashed; }
-  .comp.plan b, .comp.plan p { color: var(--muted); }
-  .comp .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-  .comp b { font-size: 0.92rem; }
-  .comp p { margin: 4px 0 0; font-size: 0.8rem; color: var(--muted); }
-  .comp .meta { color: var(--text); font-variant-numeric: tabular-nums; }
-  .st { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
-  .live .st { color: var(--ok); } .wait .st { color: var(--warn); } .next .st { color: var(--accent); } .plan .st { color: var(--muted); }
-  .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
-  .chips code { font-size: 0.72rem; background: var(--surface); border: 1px solid var(--border); }
-
-  .flowline { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; margin: 4px 0; }
-  .flowline div:last-child { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 0.8rem; padding: 6px 0 6px 18px; position: relative; }
-  .flowline div:last-child::before { content: "↓"; font-size: 1.1rem; position: absolute; left: 0; }
-
-  .here { margin: 14px 0; padding: 12px 16px; border-radius: 10px; border: 2px solid var(--block);
-          display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-  .here b { color: var(--block); white-space: nowrap; }
-
-  /* Hour schedule */
-  .sched { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; gap: 0 14px; }
-  .sched > div { padding: 10px 0; border-top: 1px solid var(--border); }
-  .sched > div:nth-child(-n+3) { border-top: 0; padding-top: 0; }
-  .sched .t { font: 600 0.9rem ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .sched .c { color: var(--muted); font-size: 0.85rem; text-align: right; font-variant-numeric: tabular-nums; }
+  /* Reference architecture */
+  .arch { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 18px; align-items: start; }
+  .flow { display: grid; gap: 0; }
+  .stage { background: var(--surface); border: 1px solid var(--border); border-left: 5px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+  .stage.z-src { border-left-color: var(--muted); }
+  .stage.z-ing { border-left-color: var(--accent); }
+  .stage.z-bronze { border-left-color: var(--bronze); }
+  .stage.z-silver { border-left-color: var(--silver); }
+  .stage.z-gold { border-left-color: var(--gold); border-style: dashed; border-left-style: solid; }
+  .stage.z-serve, .stage.z-act { border-left-color: var(--serve); border-style: dashed; border-left-style: solid; }
+  .sh { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: start; }
+  .num { font-weight: 700; color: var(--muted); font-size: 0.85rem; padding-top: 1px; }
+  .term { font-weight: 650; font-size: 0.98rem; }
+  .tool { color: var(--muted); font-size: 0.82rem; }
+  .stage ul { margin: 8px 0 0; padding-left: 18px; font-size: 0.85rem; }
+  .stage li { margin: 2px 0; }
+  .hop { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.78rem; padding: 5px 0 5px 22px; }
+  .hop b { font: 600 0.72rem ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); background: var(--track); padding: 1px 6px; border-radius: 4px; }
+  .hop::before { content: "↓"; font-size: 1rem; margin-left: -16px; width: 12px; }
+  .here { margin: 8px 0; padding: 10px 14px; border-radius: 10px; border: 2px solid var(--block); font-size: 0.88rem; }
+  .here b { color: var(--block); }
+  .rail { display: grid; gap: 10px; }
+  .rail .lab { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .rc { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; }
+  .rc .top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+  .rc b { font-size: 0.9rem; }
+  .rc p { margin: 4px 0 0; font-size: 0.8rem; color: var(--muted); }
 
   /* Tables */
-  .tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
-  .tbl { border: 1.5px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); }
-  .tbl.live { border-color: var(--ok); } .tbl.plan { border-style: dashed; }
-  .tbl h3 { margin: 0; padding: 9px 12px; font: 600 0.88rem ui-monospace, SFMono-Regular, Menlo, monospace;
-            display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--border); }
-  .tbl h3 span { font: 400 0.75rem -apple-system, BlinkMacSystemFont, sans-serif; color: var(--muted); }
-  .tbl ul { list-style: none; margin: 0; padding: 8px 12px 10px; font: 0.78rem ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
-  .tbl li { padding: 1px 0; overflow-wrap: anywhere; }
-  .tbl li.k { color: var(--text); }
-  .tbl p { margin: 0; padding: 0 12px 10px; font-size: 0.78rem; color: var(--muted); }
+  .tw { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.84rem; }
+  th, td { text-align: left; padding: 9px 12px; border-top: 1px solid var(--border); vertical-align: top; }
+  thead th { border-top: 0; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); background: var(--track); white-space: nowrap; }
+  td.nw { white-space: nowrap; }
+  td .sub { display: block; color: var(--muted); font-size: 0.78rem; }
+  tr.planned td { color: var(--muted); }
+  .zone { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+  .zone.bronze { background: var(--bronze); } .zone.silver { background: var(--silver); } .zone.gold { background: var(--gold); }
+  .zone.ops { background: var(--accent); } .zone.app { background: var(--serve); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
-  /* Journey */
-  .journey { display: grid; gap: 0; }
-  .step { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; }
-  .dot { width: 14px; height: 14px; border-radius: 50%; margin: 5px auto 0; border: 2px solid; }
-  .step.live .dot { border-color: var(--ok); background: var(--ok); }
-  .step.plan .dot { border-color: var(--muted); border-style: dashed; }
-  .step > div:last-child { padding-bottom: 16px; border-left: 0; }
-  .step .what { font-weight: 600; font-size: 0.92rem; }
-  .step .ex { font: 0.8rem ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); overflow-wrap: anywhere; }
-  .step.plan .what { color: var(--muted); }
+  /* Concept cards */
+  .concepts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+  .concept .k { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+  .concept h3 { margin: 2px 0 6px; }
+  .concept p { font-size: 0.86rem; margin: 0 0 6px; }
+  .concept .proof { font-size: 0.8rem; color: var(--muted); border-top: 1px dashed var(--border); padding-top: 6px; margin: 8px 0 0; }
+  .concept .proof b { color: var(--ok); }
+  .concept .proof b.lim { color: var(--warn); }
 
-  /* Now vs target */
-  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
-  .two h3 { margin: 0 0 10px; font-size: 1rem; }
-  .rows { display: grid; gap: 6px; font-size: 0.875rem; }
-  .row { display: flex; justify-content: space-between; gap: 10px; border-top: 1px solid var(--border); padding-top: 6px; }
-  .row:first-child { border-top: 0; padding-top: 0; }
-  .row .st { align-self: center; }
-  .row.live .st { color: var(--ok); } .row.plan .st { color: var(--muted); } .row.wait .st { color: var(--warn); }
+  /* Lineage */
+  .lineage { display: grid; gap: 0; }
+  .ls { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 14px; padding: 12px 0; border-top: 1px solid var(--border); }
+  .ls:first-child { border-top: 0; padding-top: 0; }
+  .ls .where { font-size: 0.78rem; font-weight: 650; }
+  .ls .where span { display: block; font-weight: 400; color: var(--muted); }
+  .ls.planned .where, .ls.planned .body { color: var(--muted); }
+  .mini { border-collapse: collapse; font: 0.8rem ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .mini th, .mini td { padding: 3px 14px 3px 0; border: 0; }
+  .mini th { color: var(--muted); font-weight: 500; font-size: 0.72rem; text-transform: none; letter-spacing: 0; background: none; }
 
-  /* Phases */
-  .phases { display: grid; gap: 8px; }
-  .ph { display: grid; grid-template-columns: 210px minmax(0, 1fr) 54px; gap: 12px; align-items: center; font-size: 0.875rem; }
-  .ph .bar { height: 8px; background: var(--track); border-radius: 99px; overflow: hidden; display: flex; }
-  .ph .bar i { background: var(--ok); display: block; }
-  .ph .bar i.part { background: var(--warn); opacity: 0.7; }
-  .ph .cnt { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .ph.now .name { font-weight: 650; }
+  /* DAG */
+  .dag { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.82rem; }
+  .dag .n { border: 1.5px solid var(--border); border-radius: 8px; padding: 6px 10px; background: var(--surface); }
+  .dag .n.live { border-color: var(--ok); } .dag .n.next { border-color: var(--accent); } .dag .n.plan { border-style: dashed; color: var(--muted); }
+  .dag .n.tbl { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.76rem; background: var(--track); border-color: transparent; }
+  .dag .a { color: var(--muted); }
+  .daglab { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 14px 0 8px; }
+  .daglab:first-child { margin-top: 0; }
 
-  .risks { display: grid; gap: 10px; }
+  /* Incident */
+  .inc { border: 1px solid var(--warn); border-radius: 12px; padding: 18px; background: var(--surface); }
+  .inc ol { margin: 8px 0 12px; padding-left: 20px; font-size: 0.88rem; }
+  .inc li { margin-bottom: 4px; }
+  .inc .t { font: 600 0.82rem ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; font-size: 0.86rem; }
+  .grid2 h3 { font-size: 0.85rem; margin-bottom: 4px; }
+  .grid2 ul { margin: 0; padding-left: 18px; }
+
+  .risks { display: grid; gap: 12px; }
   .risk { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 12px; }
   .risk .lvl { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding-top: 3px; }
-  .risk .lvl.h { color: var(--block); } .risk .lvl.m { color: var(--warn); } .risk .lvl.l { color: var(--muted); }
+  .lvl.h { color: var(--block); } .lvl.m { color: var(--warn); } .lvl.l { color: var(--muted); }
   .risk b { display: block; font-size: 0.92rem; }
   .risk span { color: var(--muted); font-size: 0.85rem; }
 
+  .rules { counter-reset: r; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; }
+  .rule { counter-increment: r; display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; font-size: 0.88rem; }
+  .rule::before { content: counter(r); width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--border);
+                  display: grid; place-items: center; font-size: 0.75rem; font-weight: 700; background: var(--surface); }
+  .rule b { display: block; }
+  .rule span { color: var(--muted); font-size: 0.82rem; }
+
   .next { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
-  .next h3 { margin: 0 0 8px; font-size: 1rem; }
   .next ol { margin: 0; padding-left: 20px; font-size: 0.92rem; }
   .next li { margin-bottom: 6px; }
+  .urgent { color: var(--block); font-weight: 650; }
 
   footer { margin-top: 56px; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 16px; }
 
-  @media (max-width: 640px) {
-    .layer, .flowline { grid-template-columns: minmax(0, 1fr); gap: 8px; }
-    .flowline div:first-child { display: none; }
-    .ph { grid-template-columns: minmax(0, 1fr) 54px; }
-    .ph .bar { grid-column: 1 / -1; grid-row: 2; }
-    .sched { grid-template-columns: 64px minmax(0, 1fr); }
-    .sched .c { grid-column: 2; text-align: left; padding-top: 0; border-top: 0; }
+  @media (max-width: 860px) { .arch { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 600px) {
+    .ls { grid-template-columns: minmax(0, 1fr); gap: 6px; }
     .risk { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   }
 </style>
@@ -153,231 +161,322 @@
 <body>
 <main>
 
-<p class="muted small">Trend Radar · architecture and status · snapshot Tue Nov 3, 2026, 16:01 UTC</p>
-<h1>Architecture: where we stand</h1>
-<p class="lede"><b>Collection and storage are live.</b> YouTube, Twitch and Wikipedia flow into Postgres every hour.
-Nothing turns that data into answers yet: topics, scoring, the website and alerts are next.
-There's no server yet, so everything runs in Docker on your Mac.</p>
+<p class="muted small">Trend Radar · data architecture · snapshot Tue Nov 3, 2026, 16:45 UTC</p>
+<h1>Data architecture: where we stand</h1>
+<p class="lede">An hourly <b>batch pipeline</b> on a <b>medallion architecture</b>. Connectors <b>extract</b> from three upstream APIs,
+<b>load</b> the raw payloads into a <b>bronze</b> zone and conformed records into <b>silver</b>, all in one Postgres warehouse.
+Next, SQL <b>transformations</b> inside the warehouse will build <b>gold</b> marts (topics, momentum scores) for the
+<b>serving layer</b> (API, website) and <b>activation</b> (email, Telegram).
+<b>Built: sources → ingestion → bronze → silver, plus orchestration. Not built: gold, serving, activation, the production platform.</b></p>
+<div class="tags">
+  <span>Batch, hourly micro-batches</span><span>EL at ingest + in-warehouse T (ELT)</span><span>Medallion: bronze / silver / gold</span>
+  <span>Idempotent upserts</span><span>Single-node Postgres 17</span><span>Cron-style orchestration</span><span>Runs locally (Docker)</span>
+</div>
 
 <div class="kpis">
-  <div class="card kpi"><div class="v">2 / 3</div><div class="l">sources collecting (Twitch waiting)</div></div>
-  <div class="card kpi"><div class="v">97</div><div class="l">YouTube videos tracked</div></div>
-  <div class="card kpi"><div class="v">464</div><div class="l">metric readings stored</div></div>
-  <div class="card kpi"><div class="v">202</div><div class="l">of 10,000 YouTube units today</div></div>
-  <div class="card kpi"><div class="v">10</div><div class="l">tests passing</div></div>
-  <div class="card kpi"><div class="v">12 days</div><div class="l">to launch target (Nov 15)</div></div>
+  <div class="card kpi"><div class="v">2 / 3</div><div class="l">sources in production (Twitch: upstream not ready)</div></div>
+  <div class="card kpi"><div class="v">32</div><div class="l">bronze rows (54 kB raw JSON)</div></div>
+  <div class="card kpi"><div class="v">851</div><div class="l">silver rows (103 items + 748 signals)</div></div>
+  <div class="card kpi"><div class="v">0 / 9</div><div class="l">pipeline runs failed</div></div>
+  <div class="card kpi"><div class="v">208</div><div class="l">of 10,000 YouTube quota units today</div></div>
+  <div class="card kpi"><div class="v">≤ 1h</div><div class="l">freshness target (missed today: Mac slept)</div></div>
 </div>
 
-<h2>The system, top to bottom</h2>
-<div class="legend">
-  <span><i class="sw live"></i>Built and running</span>
-  <span><i class="sw wait"></i>Built, waiting on something outside us</span>
-  <span><i class="sw next"></i>Next up</span>
-  <span><i class="sw plan"></i>Planned</span>
+<!-- ============ 1. REFERENCE ARCHITECTURE ============ -->
+<h2>1 · Reference architecture</h2>
+<p class="muted">Data flows top to bottom through the stages. The right column covers the parts that span every stage (platform).</p>
+
+<div class="arch">
+  <div class="flow">
+    <div class="stage z-src">
+      <div class="sh"><span class="num">①</span><div><div class="term">Source systems (upstream)</div><div class="tool">YouTube Data API v3 · Twitch Helix · Wikimedia Pageviews REST</div></div><span class="chip live">2 live · 1 waiting</span></div>
+      <ul><li>Official APIs only. Pull-based (we poll), no webhooks or streams.</li>
+          <li>Each has its own limits: YouTube 10,000 units/day, Twitch 800 points/min, Wikipedia asks for a polite User-Agent.</li></ul>
+    </div>
+    <div class="hop"><b>EXTRACT</b> HTTPS pull on a schedule · keys in headers · retry with backoff</div>
+
+    <div class="stage z-ing">
+      <div class="sh"><span class="num">②</span><div><div class="term">Ingestion: connectors (extract + load)</div><div class="tool">Python 3.12 · httpx · pydantic (contracts) · tenacity (retries) · SQLAlchemy + psycopg</div></div><span class="chip live">Live</span></div>
+      <ul><li><b>Incremental extraction</b>: sliding 24h window for discovery, a "hot set" of videos under 7 days old for snapshots.</li>
+          <li><b>Schema contracts</b>: every response validated before load; upstream schema drift fails the run instead of loading bad rows.</li>
+          <li>Writes bronze and silver in <b>one transaction</b>: raw payload appended, conformed rows upserted.</li></ul>
+    </div>
+    <div class="hop"><b>LOAD</b> append-only, the payload exactly as received</div>
+
+    <div class="stage z-bronze">
+      <div class="sh"><span class="num">③</span><div><div class="term">Bronze: raw landing zone</div><div class="tool">Postgres JSONB table <code>raw_responses</code></div></div><span class="chip live">Live · TTL next</span></div>
+      <ul><li>Immutable record of what each source returned: audit trail, debugging, and a way to <b>replay</b> into silver (replay not built yet).</li>
+          <li><b>Retention / TTL</b>: 30 days (YouTube's storage rule). The purge job is next.</li></ul>
+    </div>
+    <div class="hop"><b>CONFORM</b> parse · clean (HTML unescape) · deduplicate · upsert on natural key + time bucket</div>
+
+    <div class="stage z-silver">
+      <div class="sh"><span class="num">④</span><div><div class="term">Silver: conformed layer</div><div class="tool">Postgres tables <code>items</code> (dimension) · <code>signals</code> (fact)</div></div><span class="chip part">Base live · cleansed views next</span></div>
+      <ul><li><b>Dimensional model</b>: <code>items</code> = one row per entity (SCD type 1); <code>signals</code> = <b>periodic snapshot fact</b>, grain: item × metric × hour.</li>
+          <li>One shape for every source: a YouTube video, a Twitch stream and a Wikipedia article all land in the same two tables.</li>
+          <li>Next (P3.1): a cleansed materialized view with hourly <b>deltas</b> + data quality assertions.</li></ul>
+    </div>
+
+    <div class="here"><b>▲ You are here.</b> Everything above runs in production (locally). Everything below turns metrics into "what's rising" and doesn't exist yet.</div>
+
+    <div class="hop"><b>TRANSFORM</b> SQL inside the warehouse (ELT) · rebuilt after each ingestion cycle</div>
+    <div class="stage z-gold">
+      <div class="sh"><span class="num">⑤</span><div><div class="term">Gold: marts</div><div class="tool">SQL + Python · tables <code>topics</code>, <code>topic_items</code>, <code>topic_scores</code></div></div><span class="chip plan">Phase 3</span></div>
+      <ul><li><b>Entity resolution</b>: clean titles, group videos into topics via keyword aliases + n-grams, with stable topic IDs.</li>
+          <li><b>Feature engineering</b>: growth rate vs baseline → momentum score + flags.</li>
+          <li><b>Outlier filtering</b>: spam (huge views, almost no engagement), reuploads.</li></ul>
+    </div>
+    <div class="hop"><b>SERVE</b> read-only queries against gold</div>
+
+    <div class="stage z-serve">
+      <div class="sh"><span class="num">⑥</span><div><div class="term">Serving layer: the data product</div><div class="tool">FastAPI (same image as the worker) · Next.js with ISR <code>revalidate</code> · Caddy HTTPS</div></div><span class="chip plan">Phase 4</span></div>
+      <ul><li><code>/api/topics/top</code>, <code>/api/topics/{slug}</code>, <code>/api/videos/rising</code>, <code>/api/health</code>, <code>POST /api/waitlist</code>.</li>
+          <li>Pages are cached and refreshed hourly (data changes hourly), so there's no Redis.</li></ul>
+    </div>
+    <div class="hop"><b>ACTIVATE</b> push insights out to where users are</div>
+
+    <div class="stage z-act">
+      <div class="sh"><span class="num">⑦</span><div><div class="term">Activation / downstream consumers</div><div class="tool">Resend (email) · Telegram Bot API · Next.js image generation (<code>next/og</code>)</div></div><span class="chip plan">Phase 5</span></div>
+      <ul><li>Daily digest to the waitlist · spike alerts to a public channel (deduplicated per topic per day) · top-5 card for short videos.</li></ul>
+    </div>
+  </div>
+
+  <aside class="rail">
+    <div class="lab">Platform (spans every stage)</div>
+    <div class="rc"><div class="top"><b>Orchestration</b><span class="chip live">Live</span></div>
+      <p>APScheduler: cron and interval triggers, a lock per job (<code>max_instances=1</code>), missed runs collapsed (<code>coalesce</code>), 10-minute misfire grace.</p></div>
+    <div class="rc"><div class="top"><b>Data quality</b><span class="chip part">Partial</span></div>
+      <p>Live: pydantic contracts, unique + foreign-key constraints, retry policy. Next: SQL assertions (no duplicates, no negative deltas, no null timestamps).</p></div>
+    <div class="rc"><div class="top"><b>Observability</b><span class="chip part">Partial</span></div>
+      <p>Live: <code>connector_runs</code> run log (status, row counts, cost, error) and worker logs. Planned: Sentry, Healthchecks heartbeat, ops alert after 2 failed runs.</p></div>
+    <div class="rc"><div class="top"><b>Governance &amp; security</b><span class="chip part">Partial</span></div>
+      <p>Official APIs only, no personal data collected, secrets in env vars and never in URLs or logs. Next: 30-day TTL. Later: privacy policy, Vault.</p></div>
+    <div class="rc"><div class="top"><b>Storage &amp; compute</b><span class="chip wait">Local only</span></div>
+      <p>Docker Compose on your Mac (postgres + worker). Target: one Hetzner VPS. Postgres is never exposed publicly.</p></div>
+    <div class="rc"><div class="top"><b>Schema management</b><span class="chip live">Live</span></div>
+      <p>Alembic migrations, applied automatically when the worker starts. <code>alembic check</code> keeps models and DB in sync.</p></div>
+    <div class="rc"><div class="top"><b>Testing</b><span class="chip live">Live</span></div>
+      <p>10 pytest tests against a real Postgres test DB with mocked APIs (<code>httpx.MockTransport</code>): idempotency, retries, quota, contracts.</p></div>
+    <div class="rc"><div class="top"><b>CI/CD &amp; infra as code</b><span class="chip block">Blocked: no VPS</span></div>
+      <p>GitHub Actions → GHCR images → Ansible deploy. Terraform after launch.</p></div>
+    <div class="rc"><div class="top"><b>Backup &amp; DR</b><span class="chip block">None yet</span></div>
+      <p>Planned: nightly <code>pg_dump</code> → Cloudflare R2, 14-day lifecycle. Target RPO 24h.</p></div>
+  </aside>
 </div>
 
-<div class="layer">
-  <div class="layer-head"><span class="n">Layer 1</span><b>Sources</b><span class="sub">Official APIs only. No scraping.</span></div>
-  <div class="comps">
-    <div class="comp live"><div class="top"><b>YouTube Data API v3</b><span class="st">Live</span></div>
-      <p>Search for new videos, then stats for each one.</p>
-      <p class="meta">97 videos · 202 units used today</p></div>
-    <div class="comp wait"><div class="top"><b>Twitch Helix</b><span class="st">Waiting</span></div>
-      <p>Keys work. Twitch has no "Grand Theft Auto VI" category yet. Starts by itself once it exists.</p></div>
-    <div class="comp live"><div class="top"><b>Wikipedia Pageviews</b><span class="st">Live</span></div>
-      <p>Daily views for 6 articles. No key needed.</p>
-      <p class="meta">6 articles · 30 days of history</p></div>
-    <div class="comp plan"><div class="top"><b>Later sources</b><span class="st">After launch</span></div>
-      <p>Reddit, Threads, Bluesky, RSS, YouTube comment text, Twitch chat.</p></div>
+<!-- ============ 2. COMPONENT → TOOL MAP ============ -->
+<h2>2 · Components and tools</h2>
+<p class="muted">Each data engineering component, the tool that fills it, and when we'd swap it for something bigger. Rule: the simplest tool that holds, each with a documented swap trigger.</p>
+<div class="tw"><table>
+  <thead><tr><th>Component</th><th>Role</th><th>Our tool</th><th>Status</th><th>Swap when…</th></tr></thead>
+  <tbody>
+    <tr><td class="nw"><b>Source connectors</b></td><td>Pull data from upstream APIs</td><td>Python + <code>httpx</code>, one module per source</td><td><span class="chip live">Live</span></td><td>&gt; ~10 sources → a connector framework (dlt, Airbyte)</td></tr>
+    <tr><td class="nw"><b>Data contracts</b></td><td>Validate upstream schema at the edge</td><td><code>pydantic</code> models (only the fields we use)</td><td><span class="chip live">Live</span></td><td>n/a</td></tr>
+    <tr><td class="nw"><b>Retry policy</b></td><td>Survive transient failures</td><td><code>tenacity</code>: 5 attempts, exponential backoff 2s→60s on 429/5xx/network; other 4xx fail fast</td><td><span class="chip live">Live</span></td><td>n/a</td></tr>
+    <tr><td class="nw"><b>Rate-limit / cost budget</b></td><td>Never exceed upstream quota</td><td>Quota guard: every call charged to <code>connector_runs.quota_used</code>; hard stop at 9,000/day</td><td><span class="chip live">Live</span></td><td>Multiple workers → a shared token bucket</td></tr>
+    <tr><td class="nw"><b>Raw landing zone</b> (bronze)</td><td>Immutable raw payloads, replay</td><td>Postgres JSONB <code>raw_responses</code></td><td><span class="chip live">Live</span></td><td>Raw &gt; a few GB or longer retention → object storage (R2) as compressed JSON/Parquet</td></tr>
+    <tr><td class="nw"><b>Warehouse</b></td><td>Store silver + gold, run SQL</td><td>Postgres 17 (pgvector image)</td><td><span class="chip live">Live</span></td><td><code>signals</code> &gt; ~50M rows → monthly partitioning; heavy analytics → columnar engine (ClickHouse/BigQuery)</td></tr>
+    <tr><td class="nw"><b>Load pattern</b></td><td>Idempotent merge</td><td><code>INSERT … ON CONFLICT DO UPDATE</code> on natural key + time bucket</td><td><span class="chip live">Live</span></td><td>n/a (same idea as <code>MERGE</code> elsewhere)</td></tr>
+    <tr><td class="nw"><b>Transformation engine</b></td><td>Silver → gold models</td><td>SQL (materialized views) + small Python steps</td><td><span class="chip next">Next</span></td><td>&gt; ~15 models or need lineage docs/tests → dbt</td></tr>
+    <tr><td class="nw"><b>Orchestrator</b></td><td>Schedule, lock, recover missed runs</td><td>APScheduler (in-process)</td><td><span class="chip live">Live</span></td><td>Real dependency graph, backfill UI, several workers → Dagster</td></tr>
+    <tr><td class="nw"><b>Schema migrations</b></td><td>Versioned DDL</td><td>Alembic</td><td><span class="chip live">Live</span></td><td>n/a</td></tr>
+    <tr><td class="nw"><b>Pipeline observability</b></td><td>Run status, volume, cost, errors</td><td><code>connector_runs</code> + logs; later Sentry, Healthchecks.io, Telegram ops alerts</td><td><span class="chip part">Partial</span></td><td>Many pipelines → metrics stack (Prometheus/Grafana)</td></tr>
+    <tr><td class="nw"><b>Data quality tests</b></td><td>Assert invariants on data</td><td>DB constraints now; SQL assertions in P3.1</td><td><span class="chip part">Partial</span></td><td>With dbt → dbt tests / Great Expectations</td></tr>
+    <tr><td class="nw"><b>Topic modelling</b></td><td>Group items into entities</td><td>Keyword aliases + n-grams</td><td><span class="chip plan">Phase 3</span></td><td>Top-20 review fails → MiniLM embeddings in pgvector + HDBSCAN</td></tr>
+    <tr><td class="nw"><b>Serving API</b></td><td>Expose gold to apps</td><td>FastAPI</td><td><span class="chip plan">Phase 4</span></td><td>n/a</td></tr>
+    <tr><td class="nw"><b>Cache</b></td><td>Absorb read traffic</td><td>Next.js ISR <code>revalidate</code> (hourly)</td><td><span class="chip plan">Phase 4</span></td><td>API p95 too slow under load → Redis</td></tr>
+    <tr><td class="nw"><b>Activation</b></td><td>Push insights to users</td><td>Resend email, Telegram bot</td><td><span class="chip plan">Phase 5</span></td><td>n/a</td></tr>
+    <tr><td class="nw"><b>Runtime</b></td><td>Package and run services</td><td>Docker Compose, <code>python:3.12-slim</code> + uv, non-root</td><td><span class="chip live">Live</span></td><td>Many nodes → Kubernetes (not planned)</td></tr>
+    <tr><td class="nw"><b>CI/CD · IaC</b></td><td>Test, build, deploy reproducibly</td><td>GitHub Actions, GHCR, Ansible; Terraform later</td><td><span class="chip block">Blocked</span></td><td>n/a</td></tr>
+    <tr><td class="nw"><b>Backup / DR</b></td><td>Recover from loss</td><td><code>pg_dump</code> → R2 nightly</td><td><span class="chip block">None yet</span></td><td>RPO &lt; 24h needed → WAL archiving (pgBackRest)</td></tr>
+    <tr><td class="nw"><b>Secrets</b></td><td>Keep credentials out of code</td><td><code>.env</code> (gitignored) → Ansible Vault + GitHub secrets</td><td><span class="chip live">Live (local)</span></td><td>n/a</td></tr>
+  </tbody>
+</table></div>
+
+<!-- ============ 3. DATA MODEL ============ -->
+<h2>3 · Data model</h2>
+<p class="muted">Every table has a layer, a modelling type, a <b>grain</b> (what one row means) and a load pattern.</p>
+<div class="tw"><table>
+  <thead><tr><th>Table</th><th>Layer</th><th>Type</th><th>Grain (one row =)</th><th>Key</th><th>Load</th><th>Retention</th><th class="num">Rows</th></tr></thead>
+  <tbody>
+    <tr><td class="nw"><code>raw_responses</code></td><td class="nw"><i class="zone bronze"></i>Bronze</td><td>Append-only event log</td><td>one API response</td><td>surrogate <code>id</code></td><td>append</td><td>30 days <span class="sub">purge job next</span></td><td class="num">32</td></tr>
+    <tr><td class="nw"><code>items</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>Dimension, SCD type 1 (title overwritten)</td><td>one video / stream / clip / article / channel</td><td>natural <code>(source, item_id)</code></td><td>upsert</td><td>indefinite</td><td class="num">103</td></tr>
+    <tr><td class="nw"><code>signals</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>Periodic snapshot fact</td><td>item × metric × time bucket <span class="sub">hour; day for pageviews and subscribers</span></td><td>unique <code>(source, item_id, metric_name, captured_at)</code>, FK → items</td><td>idempotent upsert</td><td>indefinite</td><td class="num">748</td></tr>
+    <tr><td class="nw"><code>connector_runs</code></td><td class="nw"><i class="zone ops"></i>Ops metadata</td><td>Run log / audit</td><td>one job execution</td><td><code>id</code>, index (source, started_at)</td><td>insert, update on finish</td><td>indefinite</td><td class="num">9</td></tr>
+    <tr class="planned"><td class="nw"><code>signal_deltas</code> <span class="sub">name TBD</span></td><td class="nw"><i class="zone silver"></i>Silver</td><td>Materialized view</td><td>item × metric × hour, with change vs previous reading</td><td>unique index for concurrent refresh</td><td>refresh each cycle</td><td>derived</td><td class="num">P3.1</td></tr>
+    <tr class="planned"><td class="nw"><code>topics</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Dimension (stable IDs)</td><td>one topic</td><td><code>id</code>, <code>slug</code></td><td>upsert</td><td>indefinite</td><td class="num">P3.2</td></tr>
+    <tr class="planned"><td class="nw"><code>topic_items</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Bridge table</td><td>topic × item</td><td><code>(topic_id, source, item_id)</code></td><td>rebuild each cycle</td><td>derived</td><td class="num">P3.2</td></tr>
+    <tr class="planned"><td class="nw"><code>topic_scores</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Periodic snapshot fact</td><td>topic × hour</td><td><code>(topic_id, hour)</code></td><td>upsert</td><td>indefinite</td><td class="num">P3.3</td></tr>
+    <tr class="planned"><td class="nw"><code>waitlist</code>, <code>alerts_sent</code></td><td class="nw"><i class="zone app"></i>App (OLTP)</td><td>Transactional</td><td>one signup · one alert per topic per day</td><td>unique email · unique <code>(topic_id, date)</code></td><td>insert</td><td>until unsubscribe</td><td class="num">P4–5</td></tr>
+  </tbody>
+</table></div>
+
+<!-- ============ 4. PIPELINE MECHANICS ============ -->
+<h2>4 · Pipeline mechanics</h2>
+<p class="muted">The data engineering patterns the pipeline uses, how each is implemented, and the evidence.</p>
+<div class="concepts">
+  <div class="card concept"><div class="k">Idempotency</div><h3>Effectively-once loads</h3>
+    <p>Jobs run at-least-once (retries, restarts). Every write is an upsert keyed on natural key + time bucket, so re-running a job in the same hour overwrites instead of duplicating.</p>
+    <p class="proof"><b>Proven:</b> tests re-run the same hour → no duplicates; 3 Wikipedia runs → still exactly 180 rows.</p></div>
+  <div class="card concept"><div class="k">Incremental extraction</div><h3>Sliding window + hot set</h3>
+    <p>Discovery only asks for videos published in the last 24h. Snapshots only refresh the "hot set" (videos under 7 days old). Older items stop costing quota.</p>
+    <p class="proof"><b>Live:</b> 97 videos discovered for 200 units; snapshot of all 97 = 2 units.</p></div>
+  <div class="card concept"><div class="k">Late-arriving data</div><h3>Lookback window (rolling backfill)</h3>
+    <p>Wikipedia publishes a day's counts about a day late and may revise them. Each run re-fetches the last 30 days, and the upsert overwrites any late corrections.</p>
+    <p class="proof"><b>Live:</b> 6 articles × 30 days backfilled on the first run.</p></div>
+  <div class="card concept"><div class="k">Schema contracts</div><h3>Validate at the edge</h3>
+    <p>pydantic models declare only the fields we use. If an API renames or drops one, validation fails, the run is marked <code>error</code>, and nothing half-parsed reaches silver.</p>
+    <p class="proof"><b>Tested:</b> missing-data paths (404 article, missing category, hidden subscriber counts). <b class="lim">Gap:</b> no test yet for a malformed response.</p></div>
+  <div class="card concept"><div class="k">Fault tolerance</div><h3>Retry with exponential backoff</h3>
+    <p>429, 5xx and network errors retry up to 5 times (2s, 4s, 8s… capped at 60s). Other 4xx (bad key, bad request) fail fast because retrying won't help.</p>
+    <p class="proof"><b>Proven today:</b> the 16:05 snapshot retried through the Mac going to sleep and finished with complete data.</p></div>
+  <div class="card concept"><div class="k">Cost control</div><h3>Quota budget, pessimistic accounting</h3>
+    <p>Each YouTube call is charged to the run <i>before</i> it's made, retries included, and committed immediately. Jobs stop at 9,000 of 10,000 units (resets at midnight Pacific).</p>
+    <p class="proof"><b>Live:</b> 208 units used; today's retries were charged (6 instead of 2).</p></div>
+  <div class="card concept"><div class="k">Concurrency control</div><h3>One run per job, missed runs collapse</h3>
+    <p><code>max_instances=1</code> means a slow run is never overlapped by the next. <code>coalesce</code> means 5 missed runs become 1. Runs over 10 minutes late are skipped rather than piling up.</p>
+    <p class="proof"><b>Live:</b> today's runs fired 6m45s late, within the grace period, and weren't duplicated.</p></div>
+  <div class="card concept"><div class="k">Upstream dependency</div><h3>Sensor-style wait</h3>
+    <p>If an upstream resource doesn't exist yet (the Twitch category), the run records <code>waiting</code>, not <code>error</code>, and re-checks every hour. It starts producing data automatically.</p>
+    <p class="proof"><b>Live:</b> 2 Twitch runs, status <code>waiting</code>, 0 false alarms.</p></div>
+  <div class="card concept"><div class="k">Event time vs processing time</div><h3>Bucketed snapshot time</h3>
+    <p><code>captured_at</code> is the hour bucket, not the exact fetch time (that lives in bronze). Rates will be normalised per hour in P3.1; this assumes snapshots land about 60 minutes apart.</p>
+    <p class="proof"><b class="lim">Limitation seen today:</b> the 15:00 and 16:00 readings were actually 33 minutes apart (a manual run, then a sleep-delayed run).</p></div>
+</div>
+
+<!-- ============ 5. LINEAGE ============ -->
+<h2>5 · Lineage: one record through the layers</h2>
+<p class="muted">Real data for video <code>Zsicj_pzIFA</code>. Grey rows are not built yet.</p>
+<div class="card lineage">
+  <div class="ls"><div class="where">① Source<span>search.list</span></div><div class="body">
+<pre>{ "id": { "kind": "youtube#video", "videoId": "Zsicj_pzIFA" },
+  "snippet": { "title": "GTA 6&amp;#39;s Safehouse System FULLY Explained...",
+               "channelTitle": "Hazard", "channelId": "UCI1-J45WXprOQQ_m9pmfW9A",
+               "publishedAt": "2026-11-02T20:04:08Z",
+               "description": "…", "thumbnails": { …6 sizes… } } }</pre></div></div>
+  <div class="ls"><div class="where">③ Bronze<span>raw_responses</span></div><div class="body small">Row <code>id=27</code>, <code>endpoint=search</code>, fetched 15:56 UTC. The full page of 50 results is stored exactly as received, including fields we don't use (thumbnails, description).</div></div>
+  <div class="ls"><div class="where">② Contract + conform<span>pydantic, html.unescape</span></div><div class="body small">Validated against <code>SearchResponse</code>. Title entity <code>&amp;#39;</code> → <code>'</code>. Thumbnails and description dropped (not needed downstream).</div></div>
+  <div class="ls"><div class="where">④ Silver dim<span>items</span></div><div class="body small"><code>(youtube, Zsicj_pzIFA)</code> · video · "GTA 6's Safehouse System FULLY Explained..." · Hazard · published 2026-11-02 20:04</div></div>
+  <div class="ls"><div class="where">④ Silver fact<span>signals</span></div><div class="body">
+    <table class="mini"><tr><th>captured_at</th><th>views</th><th>likes</th><th>comments</th></tr>
+      <tr><td>15:00</td><td>233,353</td><td>2,847</td><td>275</td></tr>
+      <tr><td>16:00</td><td>238,889</td><td>2,904</td><td>284</td></tr></table></div></div>
+  <div class="ls planned"><div class="where">④ Silver delta<span>P3.1</span></div><div class="body small">+5,536 views in 33 min (fetched 15:57 → 16:30) ≈ +10k views/hour. Comments/views 0.12%, vs 0.0007% for the 2.6M-view spam video: the kind of ratio the spam filter will use.</div></div>
+  <div class="ls planned"><div class="where">⑤ Gold<span>P3.2–3.3</span></div><div class="body small">Grouped into topic "Safehouses" with other matching videos → topic momentum vs its 24h baseline → flag RISING or not.</div></div>
+  <div class="ls planned"><div class="where">⑥⑦ Serve<span>P4–5</span></div><div class="body small">Topic card on the home page · Telegram alert if it spikes · line in the morning email.</div></div>
+</div>
+
+<!-- ============ 6. ORCHESTRATION ============ -->
+<h2>6 · Orchestration</h2>
+<p class="muted">Today the jobs are independent and share state through tables (time-based coupling). In Phase 3 the transforms chain after the snapshot.</p>
+<div class="tw"><table>
+  <thead><tr><th>Job</th><th>Trigger</th><th>Reads</th><th>Writes</th><th>Cost per run</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td><code>youtube.discover</code></td><td class="nw">interval 1h (+ on start)</td><td>search.list (24h window)</td><td>bronze, <code>items</code></td><td>200 units</td><td><span class="chip live">Live</span></td></tr>
+    <tr><td><code>youtube.snapshot</code></td><td class="nw">cron :05</td><td><code>items</code> hot set → videos.list</td><td>bronze, <code>signals</code></td><td>1 unit / 50 videos</td><td><span class="chip live">Live</span></td></tr>
+    <tr><td><code>youtube.channels</code></td><td class="nw">cron 06:15 daily</td><td><code>items</code> channels → channels.list</td><td>bronze, <code>items</code>, <code>signals</code></td><td>1 unit / 50 channels</td><td><span class="chip live">Live</span> <span class="sub">first run tomorrow</span></td></tr>
+    <tr><td><code>twitch.collect</code></td><td class="nw">cron :10 (+ on start)</td><td>games → streams (paged) → clips</td><td>bronze, <code>items</code>, <code>signals</code></td><td>~13 calls</td><td><span class="chip wait">Waiting</span></td></tr>
+    <tr><td><code>wikipedia.collect</code></td><td class="nw">interval 6h (+ on start)</td><td>per-article pageviews, 30-day lookback</td><td>bronze, <code>items</code>, <code>signals</code></td><td>6 calls</td><td><span class="chip live">Live</span></td></tr>
+    <tr class="planned"><td><code>maintenance.purge_raw</code></td><td class="nw">cron daily</td><td>bronze</td><td>deletes rows &gt; 30 days</td><td>0</td><td><span class="chip next">Next</span></td></tr>
+  </tbody>
+</table></div>
+<div class="card" style="margin-top:12px">
+  <div class="daglab">Target dependency graph (after Phase 3)</div>
+  <div class="dag">
+    <span class="n live">discover :00</span><span class="a">→</span><span class="n tbl">items</span><span class="a">→</span>
+    <span class="n live">snapshot :05</span><span class="a">→</span><span class="n tbl">signals</span><span class="a">→</span>
+    <span class="n next">refresh silver views</span><span class="a">→</span><span class="n plan">DQ assertions</span><span class="a">→</span>
+    <span class="n plan">build topics</span><span class="a">→</span><span class="n plan">score</span><span class="a">→</span>
+    <span class="n plan">spike alerts</span>
+  </div>
+  <p class="muted small" style="margin:12px 0 0">Implementation: the transforms run as one chained job right after a successful snapshot, so no new tool is needed. If the graph grows (several sources feeding gold, backfills), that's the trigger to move to Dagster.</p>
+</div>
+
+<!-- ============ 7. INCIDENT ============ -->
+<h2>7 · Incident today: late, slow run</h2>
+<p class="muted">Found in the run log (<code>connector_runs</code>) and confirmed with the macOS power log.</p>
+<div class="inc">
+  <ol>
+    <li><span class="t">16:04:31</span> Lid closed → Mac sleeps, on battery (~4%). Docker's VM pauses with it.</li>
+    <li><span class="t">16:05</span> <code>youtube.snapshot</code> due; nothing runs.</li>
+    <li><span class="t">16:11:17</span> Brief background wake; at 16:11:45 the scheduler fires snapshot (6m45s late, inside the 10-min grace) and <code>twitch.collect</code>.</li>
+    <li><span class="t">16:12</span> Mac sleeps again mid-run; network gone → retries (6 quota units charged instead of 2).</li>
+    <li><span class="t">16:30</span> Background wake: requests complete, both runs finish (19 min each). Status <code>ok</code> / <code>waiting</code>.</li>
+  </ol>
+  <div class="grid2">
+    <div><h3>Impact</h3><ul><li>Freshness target missed by about 25 min</li><li>+4 quota units</li><li>No data loss, no duplicates</li></ul></div>
+    <div><h3>What worked</h3><ul><li>Retry policy and misfire grace</li><li>Idempotent upserts</li><li>Run log made it visible</li></ul></div>
+    <div><h3>Fix</h3><ul><li><b>Now:</b> plug in the charger and stop the Mac sleeping</li><li><b>Real fix:</b> move to the VPS (P1.1)</li><li><b>Later:</b> Healthchecks heartbeat alerts on late runs</li></ul></div>
   </div>
 </div>
 
-<div class="flowline"><div></div><div>HTTPS on a schedule · retries on 429/5xx with backoff · keys in headers, never in URLs</div></div>
+<!-- ============ 8. STATUS ============ -->
+<h2>8 · Status by layer</h2>
+<div class="tw"><table>
+  <thead><tr><th>Layer</th><th>Status</th><th>What's left</th><th>Plan tasks</th></tr></thead>
+  <tbody>
+    <tr><td><b>Sources + ingestion</b></td><td><span class="chip live">Live</span></td><td>Twitch waits for its category; uploads-playlist discovery (needs a channel list)</td><td class="nw">P1.5 · P2.1–P2.3</td></tr>
+    <tr><td><i class="zone bronze"></i><b>Bronze</b></td><td><span class="chip live">Live</span></td><td>30-day purge job</td><td class="nw">P1.4 + cleanup</td></tr>
+    <tr><td><i class="zone silver"></i><b>Silver</b></td><td><span class="chip part">Partial</span></td><td>Cleansed view with deltas + DQ assertions</td><td class="nw">P3.1</td></tr>
+    <tr><td><i class="zone gold"></i><b>Gold</b></td><td><span class="chip plan">Not started</span></td><td>Topics, scores, spam filter, top-20 review</td><td class="nw">P3.2 · P3.3</td></tr>
+    <tr><td><b>Serving</b></td><td><span class="chip plan">Not started</span></td><td>API, website, SEO, mobile</td><td class="nw">P4.1–P4.6</td></tr>
+    <tr><td><b>Activation</b></td><td><span class="chip plan">Not started</span></td><td>Email digest, Telegram alerts, daily card</td><td class="nw">P5.1–P5.3</td></tr>
+    <tr><td><b>Orchestration</b></td><td><span class="chip live">Live</span></td><td>Chain the transforms after the snapshot</td><td class="nw">P3.1</td></tr>
+    <tr><td><b>Observability</b></td><td><span class="chip part">Partial</span></td><td>Sentry, heartbeat, ops alerts, admin page</td><td class="nw">P2.6 · P6.1 · P6.2</td></tr>
+    <tr><td><b>Platform</b> (server, CI/CD, backups)</td><td><span class="chip block">Blocked</span></td><td>Needs the VPS + domain</td><td class="nw">P1.1–P1.3 · P2.4 · P2.5</td></tr>
+  </tbody>
+</table></div>
 
-<div class="layer">
-  <div class="layer-head"><span class="n">Layer 2</span><b>Worker</b><span class="sub">Python 3.12 · APScheduler · one Docker container</span></div>
-  <div class="comps">
-    <div class="comp live"><div class="top"><b>Collectors</b><span class="st">Live</span></div>
-      <p>One job per source, each run logged.</p>
-      <div class="chips"><code>youtube.discover</code><code>youtube.snapshot</code><code>youtube.channels</code><code>twitch.collect</code><code>wikipedia.collect</code></div></div>
-    <div class="comp live"><div class="top"><b>Guards</b><span class="st">Live</span></div>
-      <p>YouTube quota stop at 9,000 units/day · one run of a job at a time · skips sources with missing keys.</p></div>
-    <div class="comp next"><div class="top"><b>Cleanup</b><span class="st">Next</span></div>
-      <p>Delete raw API responses after 30 days (YouTube's storage rule).</p></div>
-    <div class="comp plan"><div class="top"><b>Brain + alert jobs</b><span class="st">Phase 3–5</span></div>
-      <p>Refresh aggregates, rebuild topics, score, send alerts and the digest.</p></div>
-  </div>
-</div>
-
-<div class="flowline"><div></div><div>upserts: re-runs overwrite the same hour instead of duplicating</div></div>
-
-<div class="layer">
-  <div class="layer-head"><span class="n">Layer 3</span><b>Storage</b><span class="sub">Postgres 17 + pgvector · 8.2 MB so far</span></div>
-  <div class="comps">
-    <div class="comp live"><div class="top"><b>items</b><span class="st">Live</span></div>
-      <p>One row per video / stream / clip / article.</p><p class="meta">103 rows</p></div>
-    <div class="comp live"><div class="top"><b>signals</b><span class="st">Live</span></div>
-      <p>One number per item per hour (views, likes, comments, viewers, pageviews).</p><p class="meta">464 rows</p></div>
-    <div class="comp live"><div class="top"><b>raw_responses</b><span class="st">Live</span></div>
-      <p>Every API reply as sent, for re-processing.</p><p class="meta">29 rows · 47 kB</p></div>
-    <div class="comp live"><div class="top"><b>connector_runs</b><span class="st">Live</span></div>
-      <p>Every job run: status, item count, quota used, error.</p><p class="meta">7 runs, 0 errors</p></div>
-  </div>
-</div>
-
-<div class="here"><b>▲ You are here</b><span>Everything above this line works. Everything below turns raw numbers into "what's rising", and doesn't exist yet.</span></div>
-
-<div class="layer">
-  <div class="layer-head"><span class="n">Layer 4</span><b>The brain</b><span class="sub">Phase 3 · Nov 6–8</span></div>
-  <div class="comps">
-    <div class="comp next"><div class="top"><b>Clean + aggregate</b><span class="st">Next</span></div>
-      <p>Views gained per hour per video. No duplicates, no negative growth.</p></div>
-    <div class="comp plan"><div class="top"><b>Topics</b><span class="st">Planned</span></div>
-      <p>Clean titles, group videos by keyword: "safehouse", "PS5 Pro", "map size"…</p></div>
-    <div class="comp plan"><div class="top"><b>Score + filter</b><span class="st">Planned</span></div>
-      <p>Momentum vs normal; drop spam (huge views, almost no comments) and reuploads.</p></div>
-  </div>
-</div>
-
-<div class="flowline"><div></div><div>tables: topics · topic_items · topic_scores</div></div>
-
-<div class="layer">
-  <div class="layer-head"><span class="n">Layer 5</span><b>Product</b><span class="sub">Phases 4–5 · Nov 9–12</span></div>
-  <div class="comps">
-    <div class="comp plan"><div class="top"><b>API</b><span class="st">Planned</span></div>
-      <p>FastAPI, same image as the worker.</p>
-      <div class="chips"><code>/api/health</code><code>/api/topics/top</code><code>/api/topics/{slug}</code><code>/api/videos/rising</code><code>POST /api/waitlist</code></div></div>
-    <div class="comp plan"><div class="top"><b>Website</b><span class="st">Planned</span></div>
-      <p>Next.js: home (top 5), topic page with 7-day chart, rising videos, about/privacy.</p></div>
-    <div class="comp plan"><div class="top"><b>Delivery</b><span class="st">Planned</span></div>
-      <p>Daily email digest (Resend), spike alerts to a Telegram channel, top-5 card for video.</p></div>
-  </div>
-</div>
-
-<div class="flowline"><div></div><div>Caddy (HTTPS) on the server</div></div>
-
-<div class="layer">
-  <div class="layer-head"><span class="n">Layer 6</span><b>People</b></div>
-  <div class="comps">
-    <div class="comp plan"><div class="top"><b>Creators</b><span class="st">Launch</span></div>
-      <p>Phone first. See today's rising topics, join the waitlist, follow the Telegram channel.</p></div>
-  </div>
-</div>
-
-<h2>One hour inside the worker</h2>
-<div class="card">
-  <div class="sched">
-    <div class="t">:00</div><div><code>youtube.discover</code> searches "GTA 6", newest and most viewed in the last 24h</div><div class="c">200 units</div>
-    <div class="t">:05</div><div><code>youtube.snapshot</code> views, likes, comments for every video under 7 days old</div><div class="c">1 unit / 50 videos</div>
-    <div class="t">:10</div><div><code>twitch.collect</code> live streams + top clips (currently records "waiting")</div><div class="c">~13 calls</div>
-    <div class="t">every 6h</div><div><code>wikipedia.collect</code> daily pageviews, re-fetching the last 30 days</div><div class="c">6 calls</div>
-    <div class="t">06:15</div><div><code>youtube.channels</code> subscriber counts, once a day (first run tomorrow)</div><div class="c">1 unit / 50 channels</div>
-  </div>
-</div>
-
-<h2>What's stored</h2>
-<div class="tables">
-  <div class="tbl live"><h3>items <span>103 rows</span></h3><ul>
-    <li class="k">source, item_id (key)</li><li>item_type: video · stream · clip · article · channel</li>
-    <li>title, url</li><li>channel_id, channel_title</li><li>published_at, first_seen_at</li></ul></div>
-  <div class="tbl live"><h3>signals <span>464 rows</span></h3><ul>
-    <li class="k">source, item_id → items</li><li>metric_name: views · likes · comments · viewers · pageviews · subscribers</li>
-    <li>metric_value</li><li class="k">captured_at (hour or day bucket)</li></ul>
-    <p>Unique per item, metric and bucket. That's why re-runs never duplicate.</p></div>
-  <div class="tbl live"><h3>raw_responses <span>29 rows</span></h3><ul>
-    <li>source, endpoint</li><li>fetched_at</li><li>payload (full JSON)</li></ul>
-    <p>Kept 30 days (cleanup job next).</p></div>
-  <div class="tbl live"><h3>connector_runs <span>7 rows</span></h3><ul>
-    <li>source, job</li><li>started_at, finished_at</li><li>status: ok · error · waiting</li><li>items_count, quota_used, error</li></ul>
-    <p>The quota guard sums today's <code>quota_used</code>.</p></div>
-  <div class="tbl plan"><h3>topics · topic_items · topic_scores <span>Phase 3</span></h3>
-    <p style="padding-top:10px">Stable topic IDs, which videos belong to each, hourly momentum score + flags.</p></div>
-  <div class="tbl plan"><h3>waitlist · alerts_sent <span>Phase 4–5</span></h3>
-    <p style="padding-top:10px">Emails (validated, rate-limited) and one alert per topic per day.</p></div>
-</div>
-
-<h2>One video's journey</h2>
-<div class="card journey">
-  <div class="step live"><div class="dot"></div><div><div class="what">Found by search (:00)</div>
-    <div class="ex">"GTA 6's Safehouse System FULLY Explained..." · Hazard · published Nov 2, 20:04</div></div></div>
-  <div class="step live"><div class="dot"></div><div><div class="what">Saved once in <code>items</code></div>
-    <div class="ex">youtube / video_id · title · channel · published_at</div></div></div>
-  <div class="step live"><div class="dot"></div><div><div class="what">Measured every hour in <code>signals</code></div>
-    <div class="ex">15:00 → 233,353 views · 2,847 likes · 275 comments (next reading at 16:05)</div></div></div>
-  <div class="step plan"><div class="dot"></div><div><div class="what">Growth per hour (Phase 3.1)</div>
-    <div class="ex">e.g. +18,500 views/h vs its 24h average</div></div></div>
-  <div class="step plan"><div class="dot"></div><div><div class="what">Grouped into a topic (Phase 3.2)</div>
-    <div class="ex">"Safehouses": this video + others that mention it</div></div></div>
-  <div class="step plan"><div class="dot"></div><div><div class="what">Scored and filtered (Phase 3.3)</div>
-    <div class="ex">momentum high, not spam → RISING</div></div></div>
-  <div class="step plan"><div class="dot"></div><div><div class="what">Shown to creators (Phases 4–5)</div>
-    <div class="ex">home page card · Telegram alert · morning email</div></div></div>
-</div>
-<p class="muted small" style="margin-top:8px">Grey steps are illustrative: the numbers show the idea, not real output.</p>
-
-<h2>Where it runs: now vs. target</h2>
-<div class="two">
-  <div class="card"><h3>Now · your Mac</h3><div class="rows">
-    <div class="row live"><span>Docker: postgres + worker</span><span class="st">Running</span></div>
-    <div class="row live"><span>Postgres on 127.0.0.1 only</span><span class="st">Running</span></div>
-    <div class="row live"><span>Keys in <code>.env</code> (gitignored)</span><span class="st">Done</span></div>
-    <div class="row live"><span>Code on GitHub (private)</span><span class="st">Done</span></div>
-    <div class="row wait"><span>Collects only while the Mac is on and awake</span><span class="st">Risk</span></div>
-  </div></div>
-  <div class="card"><h3>Target · VPS (Hetzner)</h3><div class="rows">
-    <div class="row plan"><span>Caddy HTTPS → web, api, /admin</span><span class="st">Blocked: no VPS</span></div>
-    <div class="row plan"><span>Ansible playbook sets up the server</span><span class="st">Blocked</span></div>
-    <div class="row plan"><span>GitHub Actions → GHCR → deploy</span><span class="st">Planned</span></div>
-    <div class="row plan"><span>Nightly backup → Cloudflare R2</span><span class="st">Planned</span></div>
-    <div class="row plan"><span>Sentry · Healthchecks · UptimeRobot</span><span class="st">Planned</span></div>
-    <div class="row plan"><span>Move Mac history over with <code>pg_dump</code></span><span class="st">At cut-over</span></div>
-  </div></div>
-</div>
-
-<h2>Progress by phase</h2>
-<div class="card phases">
-  <div class="ph"><span class="name">0 · Accounts (Nov 3)</span><span class="bar"><i style="width:33%"></i><i class="part" style="width:40%"></i></span><span class="cnt">1 / 3</span></div>
-  <div class="ph"><span class="name">1 · Server + YouTube</span><span class="bar"><i style="width:20%"></i><i class="part" style="width:16%"></i></span><span class="cnt">1 / 5</span></div>
-  <div class="ph now"><span class="name">2 · More sources + safety</span><span class="bar"><i style="width:25%"></i><i class="part" style="width:20%"></i></span><span class="cnt">2 / 8</span></div>
-  <div class="ph"><span class="name">3 · The brain (Nov 6–8)</span><span class="bar"></span><span class="cnt">0 / 3</span></div>
-  <div class="ph"><span class="name">4 · The product (Nov 9–11)</span><span class="bar"></span><span class="cnt">0 / 6</span></div>
-  <div class="ph"><span class="name">5 · Delivery (Nov 12)</span><span class="bar"></span><span class="cnt">0 / 3</span></div>
-  <div class="ph"><span class="name">6 · Safety + testing</span><span class="bar"></span><span class="cnt">0 / 4</span></div>
-  <div class="ph"><span class="name">7 · Launch (Nov 15–19)</span><span class="bar"></span><span class="cnt">0 / 3</span></div>
-</div>
-<p class="muted small" style="margin-top:8px">Green = tasks done. Amber = in progress (e.g. YouTube real run done, uploads-playlist sub-task left). Counts from <code>docs/PLAN.md</code>.</p>
-
-<h2>Risks and gaps</h2>
+<!-- ============ 9. RISKS ============ -->
+<h2>9 · Risks</h2>
 <div class="card risks">
-  <div class="risk"><span class="lvl h">High</span><div><b>History lives on one laptop</b>
-    <span>No server and no backups yet. If Docker stops, we lose those hours for good; if the disk dies, everything is gone. Fixed by the VPS + nightly R2 backup.</span></div></div>
-  <div class="risk"><span class="lvl m">Medium</span><div><b>Spam tops the raw view counts</b>
-    <span>#1 right now: 2.6M views, 18 comments, hashtag-only title. Scoring has to filter this (Phase 3.3).</span></div></div>
-  <div class="risk"><span class="lvl m">Medium</span><div><b>YouTube quota climbs as videos pile up</b>
-    <span>Discovery is a fixed 4,800/day; snapshots grow until the 7-day window fills (~Nov 10). Rough worst case nears the 9,000 stop. If it does: check older videos every 3h instead of every hour.</span></div></div>
-  <div class="risk"><span class="lvl m">Medium</span><div><b>Many languages</b>
-    <span>Chinese, Portuguese, Arabic, French in the top 15. Your decision: English-only or all, before topics are built.</span></div></div>
-  <div class="risk"><span class="lvl l">Low</span><div><b>No Twitch data until the category exists</b>
-    <span>Handled: the job waits and starts by itself. Likely around release day.</span></div></div>
-  <div class="risk"><span class="lvl l">Low</span><div><b>Nobody notices if the worker dies</b>
-    <span>No monitoring yet. Healthchecks.io + Sentry come with the server (P2.6).</span></div></div>
+  <div class="risk"><span class="lvl h">High</span><div><b>Single point of failure, no backups</b>
+    <span>The whole warehouse is on one laptop: RPO is unbounded and every sleep leaves gaps in the data. Fix: VPS + nightly <code>pg_dump</code> to R2 (RPO 24h).</span></div></div>
+  <div class="risk"><span class="lvl m">Medium</span><div><b>Quota exhaustion → missing hours</b>
+    <span>Discovery is a fixed 4,800 units/day; the snapshot hot set grows until the 7-day window fills (~Nov 10). Rough worst case nears the 9,000 stop. Mitigation: tiered refresh (hourly for videos under 48h old, every 3h for older ones).</span></div></div>
+  <div class="risk"><span class="lvl m">Medium</span><div><b>Outliers / spam in the raw metrics</b>
+    <span>#1 by views right now: 2.6M views, 18 comments, hashtag-only title. Gold needs engagement-ratio filters.</span></div></div>
+  <div class="risk"><span class="lvl m">Medium</span><div><b>Multilingual text</b>
+    <span>Chinese, Portuguese, Arabic and French titles in the top 15. Keyword topics need either one language or language-aware normalisation. Decision needed before P3.2.</span></div></div>
+  <div class="risk"><span class="lvl l">Low</span><div><b>Upstream not ready (Twitch)</b>
+    <span>Handled by the sensor-style wait.</span></div></div>
+  <div class="risk"><span class="lvl l">Low</span><div><b>Bronze retention not enforced yet</b>
+    <span>The 30-day purge job is next (YouTube storage rule).</span></div></div>
 </div>
 
-<h2>Next steps</h2>
+<!-- ============ 10. RULES ============ -->
+<h2>10 · Architecture rules we build to</h2>
+<p class="muted">Every new piece follows these.</p>
+<div class="rules">
+  <div class="rule"><div><b>Bronze is append-only</b><span>Never updated, purged after 30 days.</span></div></div>
+  <div class="rule"><div><b>Every table declares its grain</b><span>Written in the model docstring and on this page.</span></div></div>
+  <div class="rule"><div><b>Loads are idempotent</b><span>Upsert on natural key + time bucket. Re-running anything is always safe.</span></div></div>
+  <div class="rule"><div><b>Contracts at the edge</b><span>Validate every upstream response before it touches silver.</span></div></div>
+  <div class="rule"><div><b>Gold derives only from silver</b><span>In SQL, rebuilt each cycle. Manual fixes go in an overrides table, never into gold rows.</span></div></div>
+  <div class="rule"><div><b>Every job writes a run record</b><span>Status, rows, cost, error, in <code>connector_runs</code>.</span></div></div>
+  <div class="rule"><div><b>Every transform has a DQ assertion</b><span>No duplicates, no negative deltas, no null timestamps, at minimum.</span></div></div>
+  <div class="rule"><div><b>DDL only via Alembic</b><span>No hand-edited schema, anywhere.</span></div></div>
+  <div class="rule"><div><b>Secrets never in URLs, logs or git</b><span>Env vars now, Vault and GitHub secrets on the server.</span></div></div>
+  <div class="rule"><div><b>Simplest tool that holds</b><span>Each has a written swap trigger (section 2).</span></div></div>
+</div>
+
+<!-- ============ 11. NEXT ============ -->
+<h2>11 · Next steps</h2>
 <div class="next">
   <div class="card"><h3>Me</h3><ol>
-    <li>30-day cleanup job for <code>raw_responses</code>.</li>
-    <li>Phase 3.1: hourly growth numbers per video.</li>
-    <li>Phase 3.2–3.3: topics, momentum score, spam filter, then the top 20 for your review.</li>
+    <li><b>Bronze TTL</b>: daily <code>purge_raw</code> job + test.</li>
+    <li><b>Silver P3.1</b>: cleansed delta view + DQ assertions, chained after the snapshot.</li>
+    <li><b>Gold P3.2–3.3</b>: topics, momentum score, spam filter → top 20 for your review.</li>
   </ol></div>
   <div class="card"><h3>You</h3><ol>
-    <li>Phase 3 now, or the website backend first?</li>
-    <li>English-only YouTube, or all languages?</li>
-    <li>Keep Docker running; when ready, buy the VPS + domain (keys guide, section C).</li>
+    <li class="urgent">Plug in the charger now (battery 3–4%) and stop the Mac sleeping on power.</li>
+    <li>Gold first (my recommendation), or serving layer first?</li>
+    <li>English-only, or all languages?</li>
+    <li>VPS + domain when ready (keys guide, section C). That fixes the top risk.</li>
   </ol></div>
 </div>
 
-<footer>Unofficial, fan-made tool. Not affiliated with Rockstar Games or Take-Two Interactive. Numbers are a snapshot from the local database at 16:01 UTC, Nov 3, 2026.</footer>
+<footer>Unofficial, fan-made tool. Not affiliated with Rockstar Games or Take-Two Interactive. Numbers are a snapshot of the local database at 16:45 UTC, Nov 3, 2026.</footer>
 </main>
 </body>
 </html>

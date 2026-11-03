@@ -6,6 +6,7 @@ Unofficial, fan-made tool, not affiliated with Rockstar Games or Take-Two Intera
 
 - Brief: [docs/BRIEF.md](docs/BRIEF.md)
 - Plan and progress: [docs/PLAN.md](docs/PLAN.md)
+- Data architecture and status: [docs/architecture.html](docs/architecture.html)
 
 ## Local dev
 
