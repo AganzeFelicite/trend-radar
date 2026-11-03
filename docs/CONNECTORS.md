@@ -20,6 +20,8 @@ A connector whose keys are missing is skipped at startup with a warning. The wor
 
 ## Adding a source
 
+Step-by-step guide with copy-paste templates and the source catalog: [adding-sources.html](adding-sources.html).
+
 1. **Module** `trend_radar/connectors/<source>.py` with `SOURCE = "<source>"`.
 2. **Response models:** pydantic classes with only the fields you use. Validation fails loudly if the API changes shape.
 3. **One `_get()` per connector**, decorated with `@retry_http` (from `common.py`: retries 429/5xx/network errors with backoff, never other 4xx). It must save the body: `s.add(RawResponse(source=SOURCE, endpoint=..., payload=data))`.
@@ -30,3 +32,4 @@ A connector whose keys are missing is skipped at startup with a warning. The wor
 8. **Schedule** in `scheduler.py`, gated on its keys being present.
 9. **Test** in `tests/test_<source>.py` with `httpx.MockTransport`: data lands, a re-run doesn't duplicate, and the source's failure mode is handled (bad token, missing data, quota).
 10. **Terms:** official API only, respect its rate limits and storage rules, never resell raw data.
+11. **dbt** (from P3.1): declare the source with a freshness check and add a staging model `stg_<source>__<entity>` with tests.

@@ -94,12 +94,18 @@ Done when: three sources land in `signals`, a backup restores, and a push to `ma
 - [ ] **P2.8** Overnight review
   - [ ] Snapshots every hour, quota under budget
   - Verified:
+- [ ] **P2.9** More sources before Phase 3 (owner decision Nov 4: all sources in first, then dbt). Guide: [adding-sources.html](adding-sources.html)
+  - [ ] News RSS: 8 feeds verified Nov 4, no key
+  - [ ] Bluesky: needs a free app password (public search returns 403)
+  - [ ] Reddit: when API access is approved (can be built against mocks first)
+  - [ ] Google Trends API: when alpha access is granted
+  - Verified:
 
 ## Phase 3: The brain (Nov 6–8)
 Done when: hourly top topics look sensible to a human, with no obvious duplicates or spam.
 
-- [ ] **P3.1** SQL views: clean signals → hourly aggregates, refreshed after each cycle
-  - [ ] Checks pass: no duplicates, no negative growth, no null timestamps
+- [ ] **P3.1** dbt Core project (decided Nov 4): sources + freshness, staging models, `int_signal_deltas`; `dbt build` run by the scheduler after each snapshot
+  - [ ] dbt tests pass: no duplicates, no negative growth, no null timestamps; `dbt source freshness` passes
   - Verified:
 - [ ] **P3.2** Title cleaning + keyword topics (aliases + n-grams) → `topics`, `topic_items`
   - [ ] Same topic keeps same ID hour to hour
@@ -167,4 +173,4 @@ Done when: the site is public and stable through release day.
 - [ ] **P8.3** Auth.js + Stripe + Pro + per-user alerts
 - [ ] **P8.4** New sources behind flags: Bluesky, RSS, Threads, X, Reddit; YouTube comment text; Twitch chat (Nov 3: owner chose YouTube + Twitch only for launch)
 - [ ] **P8.5** "Make this now" list
-- [ ] **P8.6** Upgrade triggers documented (Redis, dbt, partitioning, Dagster, bigger VPS)
+- [ ] **P8.6** Upgrade triggers documented (Redis, partitioning, Dagster, bigger VPS)

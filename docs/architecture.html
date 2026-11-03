@@ -165,7 +165,7 @@
 <h1>Data architecture: where we stand</h1>
 <p class="lede">An hourly <b>batch pipeline</b> on a <b>medallion architecture</b>. Connectors <b>extract</b> from three upstream APIs,
 <b>load</b> the raw payloads into a <b>bronze</b> zone and conformed records into <b>silver</b>, all in one Postgres warehouse.
-Next, SQL <b>transformations</b> inside the warehouse will build <b>gold</b> marts (topics, momentum scores) for the
+Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b>gold</b> marts (topics, momentum scores) for the
 <b>serving layer</b> (API, website) and <b>activation</b> (email, Telegram).
 <b>Built: sources → ingestion → bronze → silver, plus orchestration. Not built: gold, serving, activation, the production platform.</b></p>
 <div class="tags">
@@ -214,14 +214,14 @@ Next, SQL <b>transformations</b> inside the warehouse will build <b>gold</b> mar
       <div class="sh"><span class="num">④</span><div><div class="term">Silver: conformed layer</div><div class="tool">Postgres tables <code>items</code> (dimension) · <code>signals</code> (fact)</div></div><span class="chip part">Base live · cleansed views next</span></div>
       <ul><li><b>Dimensional model</b>: <code>items</code> = one row per entity (SCD type 1); <code>signals</code> = <b>periodic snapshot fact</b>, grain: item × metric × hour.</li>
           <li>One shape for every source: a YouTube video, a Twitch stream and a Wikipedia article all land in the same two tables.</li>
-          <li>Next (P3.1): a cleansed materialized view with hourly <b>deltas</b> + data quality assertions.</li></ul>
+          <li>Next (P3.1): dbt staging models + <code>int_signal_deltas</code> (hourly <b>deltas</b>), covered by dbt tests.</li></ul>
     </div>
 
     <div class="here"><b>▲ You are here.</b> Everything above runs in production (locally). Everything below turns metrics into "what's rising" and doesn't exist yet.</div>
 
-    <div class="hop"><b>TRANSFORM</b> SQL inside the warehouse (ELT) · rebuilt after each ingestion cycle</div>
+    <div class="hop"><b>TRANSFORM</b> dbt Core: SQL inside the warehouse (ELT) · <code>dbt build</code> after each ingestion cycle</div>
     <div class="stage z-gold">
-      <div class="sh"><span class="num">⑤</span><div><div class="term">Gold: marts</div><div class="tool">SQL + Python · tables <code>topics</code>, <code>topic_items</code>, <code>topic_scores</code></div></div><span class="chip plan">Phase 3</span></div>
+      <div class="sh"><span class="num">⑤</span><div><div class="term">Gold: marts</div><div class="tool">dbt models + one Python step (topic extraction) · tables <code>topics</code>, <code>topic_items</code>, <code>topic_scores</code></div></div><span class="chip plan">Phase 3</span></div>
       <ul><li><b>Entity resolution</b>: clean titles, group videos into topics via keyword aliases + n-grams, with stable topic IDs.</li>
           <li><b>Feature engineering</b>: growth rate vs baseline → momentum score + flags.</li>
           <li><b>Outlier filtering</b>: spam (huge views, almost no engagement), reuploads.</li></ul>
@@ -246,7 +246,7 @@ Next, SQL <b>transformations</b> inside the warehouse will build <b>gold</b> mar
     <div class="rc"><div class="top"><b>Orchestration</b><span class="chip live">Live</span></div>
       <p>APScheduler: cron and interval triggers, a lock per job (<code>max_instances=1</code>), missed runs collapsed (<code>coalesce</code>), 10-minute misfire grace.</p></div>
     <div class="rc"><div class="top"><b>Data quality</b><span class="chip part">Partial</span></div>
-      <p>Live: pydantic contracts, unique + foreign-key constraints, retry policy. Next: SQL assertions (no duplicates, no negative deltas, no null timestamps).</p></div>
+      <p>Live: pydantic contracts, unique + foreign-key constraints, retry policy. Next: dbt tests (no duplicates, no negative deltas, no null timestamps) + <code>dbt source freshness</code>.</p></div>
     <div class="rc"><div class="top"><b>Observability</b><span class="chip part">Partial</span></div>
       <p>Live: <code>connector_runs</code> run log (status, row counts, cost, error) and worker logs. Planned: Sentry, Healthchecks heartbeat, ops alert after 2 failed runs.</p></div>
     <div class="rc"><div class="top"><b>Governance &amp; security</b><span class="chip part">Partial</span></div>
@@ -277,11 +277,11 @@ Next, SQL <b>transformations</b> inside the warehouse will build <b>gold</b> mar
     <tr><td class="nw"><b>Raw landing zone</b> (bronze)</td><td>Immutable raw payloads, replay</td><td>Postgres JSONB <code>raw_responses</code></td><td><span class="chip live">Live</span></td><td>Raw &gt; a few GB or longer retention → object storage (R2) as compressed JSON/Parquet</td></tr>
     <tr><td class="nw"><b>Warehouse</b></td><td>Store silver + gold, run SQL</td><td>Postgres 17 (pgvector image)</td><td><span class="chip live">Live</span></td><td><code>signals</code> &gt; ~50M rows → monthly partitioning; heavy analytics → columnar engine (ClickHouse/BigQuery)</td></tr>
     <tr><td class="nw"><b>Load pattern</b></td><td>Idempotent merge</td><td><code>INSERT … ON CONFLICT DO UPDATE</code> on natural key + time bucket</td><td><span class="chip live">Live</span></td><td>n/a (same idea as <code>MERGE</code> elsewhere)</td></tr>
-    <tr><td class="nw"><b>Transformation engine</b></td><td>Silver → gold models</td><td>SQL (materialized views) + small Python steps</td><td><span class="chip next">Next</span></td><td>&gt; ~15 models or need lineage docs/tests → dbt</td></tr>
+    <tr><td class="nw"><b>Transformation engine</b></td><td>Silver → gold models</td><td><b>dbt Core</b> (dbt-postgres): staging → intermediate → marts; topic extraction as a Python step</td><td><span class="chip next">Next · decided Nov 4</span></td><td>dbt Cloud not needed; Dagster to orchestrate dbt if the graph grows</td></tr>
     <tr><td class="nw"><b>Orchestrator</b></td><td>Schedule, lock, recover missed runs</td><td>APScheduler (in-process)</td><td><span class="chip live">Live</span></td><td>Real dependency graph, backfill UI, several workers → Dagster</td></tr>
     <tr><td class="nw"><b>Schema migrations</b></td><td>Versioned DDL</td><td>Alembic</td><td><span class="chip live">Live</span></td><td>n/a</td></tr>
     <tr><td class="nw"><b>Pipeline observability</b></td><td>Run status, volume, cost, errors</td><td><code>connector_runs</code> + logs; later Sentry, Healthchecks.io, Telegram ops alerts</td><td><span class="chip part">Partial</span></td><td>Many pipelines → metrics stack (Prometheus/Grafana)</td></tr>
-    <tr><td class="nw"><b>Data quality tests</b></td><td>Assert invariants on data</td><td>DB constraints now; SQL assertions in P3.1</td><td><span class="chip part">Partial</span></td><td>With dbt → dbt tests / Great Expectations</td></tr>
+    <tr><td class="nw"><b>Data quality tests</b></td><td>Assert invariants on data</td><td>DB constraints now; dbt tests (unique, not_null, relationships, custom) + source freshness in P3.1</td><td><span class="chip part">Partial</span></td><td>Great Expectations only if dbt tests fall short</td></tr>
     <tr><td class="nw"><b>Topic modelling</b></td><td>Group items into entities</td><td>Keyword aliases + n-grams</td><td><span class="chip plan">Phase 3</span></td><td>Top-20 review fails → MiniLM embeddings in pgvector + HDBSCAN</td></tr>
     <tr><td class="nw"><b>Serving API</b></td><td>Expose gold to apps</td><td>FastAPI</td><td><span class="chip plan">Phase 4</span></td><td>n/a</td></tr>
     <tr><td class="nw"><b>Cache</b></td><td>Absorb read traffic</td><td>Next.js ISR <code>revalidate</code> (hourly)</td><td><span class="chip plan">Phase 4</span></td><td>API p95 too slow under load → Redis</td></tr>
@@ -303,7 +303,7 @@ Next, SQL <b>transformations</b> inside the warehouse will build <b>gold</b> mar
     <tr><td class="nw"><code>items</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>Dimension, SCD type 1 (title overwritten)</td><td>one video / stream / clip / article / channel</td><td>natural <code>(source, item_id)</code></td><td>upsert</td><td>indefinite</td><td class="num">103</td></tr>
     <tr><td class="nw"><code>signals</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>Periodic snapshot fact</td><td>item × metric × time bucket <span class="sub">hour; day for pageviews and subscribers</span></td><td>unique <code>(source, item_id, metric_name, captured_at)</code>, FK → items</td><td>idempotent upsert</td><td>indefinite</td><td class="num">748</td></tr>
     <tr><td class="nw"><code>connector_runs</code></td><td class="nw"><i class="zone ops"></i>Ops metadata</td><td>Run log / audit</td><td>one job execution</td><td><code>id</code>, index (source, started_at)</td><td>insert, update on finish</td><td>indefinite</td><td class="num">9</td></tr>
-    <tr class="planned"><td class="nw"><code>signal_deltas</code> <span class="sub">name TBD</span></td><td class="nw"><i class="zone silver"></i>Silver</td><td>Materialized view</td><td>item × metric × hour, with change vs previous reading</td><td>unique index for concurrent refresh</td><td>refresh each cycle</td><td>derived</td><td class="num">P3.1</td></tr>
+    <tr class="planned"><td class="nw"><code>int_signal_deltas</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>dbt incremental model</td><td>item × metric × hour, with change vs previous reading</td><td>unique key <code>(source, item_id, metric_name, captured_at)</code></td><td><code>dbt build</code> each cycle</td><td>derived</td><td class="num">P3.1</td></tr>
     <tr class="planned"><td class="nw"><code>topics</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Dimension (stable IDs)</td><td>one topic</td><td><code>id</code>, <code>slug</code></td><td>upsert</td><td>indefinite</td><td class="num">P3.2</td></tr>
     <tr class="planned"><td class="nw"><code>topic_items</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Bridge table</td><td>topic × item</td><td><code>(topic_id, source, item_id)</code></td><td>rebuild each cycle</td><td>derived</td><td class="num">P3.2</td></tr>
     <tr class="planned"><td class="nw"><code>topic_scores</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Periodic snapshot fact</td><td>topic × hour</td><td><code>(topic_id, hour)</code></td><td>upsert</td><td>indefinite</td><td class="num">P3.3</td></tr>
@@ -368,7 +368,7 @@ Next, SQL <b>transformations</b> inside the warehouse will build <b>gold</b> mar
 
 <!-- ============ 6. ORCHESTRATION ============ -->
 <h2>6 · Orchestration</h2>
-<p class="muted">Today the jobs are independent and share state through tables (time-based coupling). In Phase 3 the transforms chain after the snapshot.</p>
+<p class="muted">Today the jobs are independent and share state through tables (time-based coupling). In Phase 3, dbt runs right after the snapshot.</p>
 <div class="tw"><table>
   <thead><tr><th>Job</th><th>Trigger</th><th>Reads</th><th>Writes</th><th>Cost per run</th><th>Status</th></tr></thead>
   <tbody>
@@ -385,11 +385,11 @@ Next, SQL <b>transformations</b> inside the warehouse will build <b>gold</b> mar
   <div class="dag">
     <span class="n live">discover :00</span><span class="a">→</span><span class="n tbl">items</span><span class="a">→</span>
     <span class="n live">snapshot :05</span><span class="a">→</span><span class="n tbl">signals</span><span class="a">→</span>
-    <span class="n next">refresh silver views</span><span class="a">→</span><span class="n plan">DQ assertions</span><span class="a">→</span>
-    <span class="n plan">build topics</span><span class="a">→</span><span class="n plan">score</span><span class="a">→</span>
+    <span class="n next">dbt build: silver models</span><span class="a">→</span><span class="n plan">dbt tests</span><span class="a">→</span>
+    <span class="n plan">topic extraction (Python)</span><span class="a">→</span><span class="n plan">dbt build: gold marts</span><span class="a">→</span>
     <span class="n plan">spike alerts</span>
   </div>
-  <p class="muted small" style="margin:12px 0 0">Implementation: the transforms run as one chained job right after a successful snapshot, so no new tool is needed. If the graph grows (several sources feeding gold, backfills), that's the trigger to move to Dagster.</p>
+  <p class="muted small" style="margin:12px 0 0">Implementation: one chained job after a successful snapshot: <code>dbt build --select tag:silver</code> → Python topic step → <code>dbt build --select tag:gold</code>, each step logged in <code>connector_runs</code>. APScheduler stays the orchestrator (dbt isn't a scheduler). If the graph grows (several sources feeding gold, backfills), that's the trigger to move to Dagster.</p>
 </div>
 
 <!-- ============ 7. INCIDENT ============ -->
@@ -421,7 +421,7 @@ Next, SQL <b>transformations</b> inside the warehouse will build <b>gold</b> mar
     <tr><td><i class="zone gold"></i><b>Gold</b></td><td><span class="chip plan">Not started</span></td><td>Topics, scores, spam filter, top-20 review</td><td class="nw">P3.2 · P3.3</td></tr>
     <tr><td><b>Serving</b></td><td><span class="chip plan">Not started</span></td><td>API, website, SEO, mobile</td><td class="nw">P4.1–P4.6</td></tr>
     <tr><td><b>Activation</b></td><td><span class="chip plan">Not started</span></td><td>Email digest, Telegram alerts, daily card</td><td class="nw">P5.1–P5.3</td></tr>
-    <tr><td><b>Orchestration</b></td><td><span class="chip live">Live</span></td><td>Chain the transforms after the snapshot</td><td class="nw">P3.1</td></tr>
+    <tr><td><b>Orchestration</b></td><td><span class="chip live">Live</span></td><td>Run dbt after each snapshot</td><td class="nw">P3.1</td></tr>
     <tr><td><b>Observability</b></td><td><span class="chip part">Partial</span></td><td>Sentry, heartbeat, ops alerts, admin page</td><td class="nw">P2.6 · P6.1 · P6.2</td></tr>
     <tr><td><b>Platform</b> (server, CI/CD, backups)</td><td><span class="chip block">Blocked</span></td><td>Needs the VPS + domain</td><td class="nw">P1.1–P1.3 · P2.4 · P2.5</td></tr>
   </tbody>
@@ -452,9 +452,9 @@ Next, SQL <b>transformations</b> inside the warehouse will build <b>gold</b> mar
   <div class="rule"><div><b>Every table declares its grain</b><span>Written in the model docstring and on this page.</span></div></div>
   <div class="rule"><div><b>Loads are idempotent</b><span>Upsert on natural key + time bucket. Re-running anything is always safe.</span></div></div>
   <div class="rule"><div><b>Contracts at the edge</b><span>Validate every upstream response before it touches silver.</span></div></div>
-  <div class="rule"><div><b>Gold derives only from silver</b><span>In SQL, rebuilt each cycle. Manual fixes go in an overrides table, never into gold rows.</span></div></div>
+  <div class="rule"><div><b>Gold derives only from silver</b><span>As dbt models, rebuilt each cycle. Manual fixes go in an overrides table, never into gold rows.</span></div></div>
   <div class="rule"><div><b>Every job writes a run record</b><span>Status, rows, cost, error, in <code>connector_runs</code>.</span></div></div>
-  <div class="rule"><div><b>Every transform has a DQ assertion</b><span>No duplicates, no negative deltas, no null timestamps, at minimum.</span></div></div>
+  <div class="rule"><div><b>Every dbt model has tests</b><span>No duplicates, no negative deltas, no null timestamps, at minimum.</span></div></div>
   <div class="rule"><div><b>DDL only via Alembic</b><span>No hand-edited schema, anywhere.</span></div></div>
   <div class="rule"><div><b>Secrets never in URLs, logs or git</b><span>Env vars now, Vault and GitHub secrets on the server.</span></div></div>
   <div class="rule"><div><b>Simplest tool that holds</b><span>Each has a written swap trigger (section 2).</span></div></div>
@@ -465,7 +465,8 @@ Next, SQL <b>transformations</b> inside the warehouse will build <b>gold</b> mar
 <div class="next">
   <div class="card"><h3>Me</h3><ol>
     <li><b>Bronze TTL</b>: daily <code>purge_raw</code> job + test.</li>
-    <li><b>Silver P3.1</b>: cleansed delta view + DQ assertions, chained after the snapshot.</li>
+    <li><b>More sources first</b> (your call, Nov 4): News RSS, Bluesky; Reddit and Google Trends when approved.</li>
+    <li><b>dbt P3.1</b>: dbt project, staging models, <code>int_signal_deltas</code>, tests, freshness.</li>
     <li><b>Gold P3.2–3.3</b>: topics, momentum score, spam filter → top 20 for your review.</li>
   </ol></div>
   <div class="card"><h3>You</h3><ol>

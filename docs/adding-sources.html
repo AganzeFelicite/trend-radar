@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adding Sources</title>
+<style>
+  :root {
+    --bg: #fafaf9; --surface: #ffffff; --text: #1c1917; --muted: #6b6560; --border: #e7e5e4;
+    --accent: #2563eb; --ok: #15803d; --warn: #b45309; --block: #b91c1c; --track: #f0eeec;
+    --bronze: #a16207; --silver: #64748b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f0e0d; --surface: #1a1817; --text: #f5f5f4; --muted: #a8a29e; --border: #2e2a27;
+      --accent: #60a5fa; --ok: #4ade80; --warn: #fbbf24; --block: #f87171; --track: #2a2725;
+      --bronze: #d6a35c; --silver: #94a3b8;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f0e0d; --surface: #1a1817; --text: #f5f5f4; --muted: #a8a29e; --border: #2e2a27;
+    --accent: #60a5fa; --ok: #4ade80; --warn: #fbbf24; --block: #f87171; --track: #2a2725;
+    --bronze: #d6a35c; --silver: #94a3b8;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 40px 16px 80px; }
+  h1 { font-size: 1.9rem; line-height: 1.2; margin: 0 0 6px; letter-spacing: -0.02em; }
+  h2 { font-size: 1.2rem; margin: 56px 0 6px; letter-spacing: -0.01em; }
+  h2 + .muted { margin-bottom: 16px; }
+  h3 { font-size: 1rem; margin: 0 0 6px; }
+  p { margin: 0 0 12px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 0.875rem; }
+  code { font: 0.82em ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--track);
+         padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+  .lede { font-size: 1.05rem; max-width: 760px; }
+
+  .chip { font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;
+          padding: 2px 8px; border-radius: 99px; border: 1px solid currentColor; display: inline-block; }
+  .chip.live { color: var(--ok); } .chip.wait { color: var(--warn); } .chip.now { color: var(--accent); }
+  .chip.plan { color: var(--muted); border-style: dashed; } .chip.no { color: var(--block); }
+
+  .cov { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 24px; }
+  .cov .card { padding: 12px 14px; }
+  .cov .v { font-size: 1.5rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .cov .l { font-size: 0.8rem; color: var(--muted); }
+
+  .tw { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.84rem; }
+  th, td { text-align: left; padding: 9px 12px; border-top: 1px solid var(--border); vertical-align: top; }
+  thead th { border-top: 0; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); background: var(--track); white-space: nowrap; }
+  td .sub { display: block; color: var(--muted); font-size: 0.78rem; margin-top: 2px; }
+  td.nw { white-space: nowrap; }
+  tr.excluded td { color: var(--muted); }
+
+  .order { counter-reset: o; display: grid; gap: 10px; }
+  .order > div { counter-increment: o; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 12px; align-items: start; }
+  .order > div::before { content: counter(o); width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+                         font-weight: 700; font-size: 0.85rem; border: 1px solid var(--border); background: var(--surface); }
+  .order b { display: block; }
+  .order span { color: var(--muted); font-size: 0.86rem; }
+  .order .gate { border-top: 2px dashed var(--accent); padding-top: 10px; }
+
+  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+
+  .step { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 14px; margin-top: 26px; }
+  .step .n { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; font-weight: 700;
+             background: var(--surface); border: 1px solid var(--border); }
+  .step .n.bronze { border-color: var(--bronze); color: var(--bronze); }
+  .step .n.silver { border-color: var(--silver); color: var(--silver); }
+  .step h3 { font-size: 1.02rem; margin: 5px 0 6px; }
+  .step .de { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); margin-left: 6px; }
+  .step ul { margin: 6px 0 10px; padding-left: 20px; font-size: 0.9rem; }
+  .step li { margin-bottom: 3px; }
+
+  .code { position: relative; margin: 8px 0 10px; }
+  .code .fn { font: 600 0.74rem ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); margin-bottom: 4px; display: block; }
+  pre { margin: 0; font: 0.78rem/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--track);
+        padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
+  .copy { position: absolute; top: 22px; right: 8px; font: 600 0.72rem -apple-system, sans-serif; padding: 4px 9px; border-radius: 6px;
+          border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+  .copy:hover { border-color: var(--accent); }
+
+  .callouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin: 10px 0; }
+  .callouts div { border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; font-size: 0.82rem; background: var(--surface); }
+  .callouts b { display: block; font-size: 0.78rem; }
+  .callouts .z-b { border-left: 4px solid var(--bronze); } .callouts .z-s { border-left: 4px solid var(--silver); }
+  .callouts .z-c { border-left: 4px solid var(--accent); } .callouts .z-o { border-left: 4px solid var(--ok); }
+
+  .note { border-left: 3px solid var(--warn); padding: 8px 12px; background: var(--surface); border-radius: 0 8px 8px 0; font-size: 0.86rem; margin: 10px 0; }
+  .cases { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+  .cases .card { padding: 14px 16px; }
+  .cases .k { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+  .cases h3 { margin: 2px 0 6px; font-size: 0.95rem; }
+  .cases p { font-size: 0.85rem; margin: 0; color: var(--muted); }
+
+  .mistakes { display: grid; gap: 8px; }
+  .mistake { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; font-size: 0.86rem; border-top: 1px solid var(--border); padding-top: 8px; }
+  .mistake:first-child { border-top: 0; padding-top: 0; }
+  .mistake .bad::before { content: "✗ "; color: var(--block); font-weight: 700; }
+  .mistake .good::before { content: "✓ "; color: var(--ok); font-weight: 700; }
+
+  .dod label { display: flex; gap: 10px; align-items: flex-start; padding: 7px 0; border-top: 1px solid var(--border); font-size: 0.92rem; cursor: pointer; }
+  .dod label:first-of-type { border-top: 0; }
+  .dod input { margin-top: 4px; width: 16px; height: 16px; accent-color: var(--ok); flex: none; }
+  .dod .bar { height: 6px; background: var(--track); border-radius: 99px; overflow: hidden; margin-bottom: 12px; }
+  .dod .bar i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .2s; }
+  .dod button { margin-top: 10px; font: 600 0.78rem -apple-system, sans-serif; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; }
+
+  .next { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+  .next ol { margin: 0; padding-left: 20px; font-size: 0.92rem; }
+  .next li { margin-bottom: 6px; }
+  footer { margin-top: 56px; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 16px; }
+
+  @media (max-width: 600px) {
+    .step { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+    .mistake { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+<p class="muted small">Trend Radar · ingestion layer guide · Nov 4, 2026</p>
+<h1>Adding sources</h1>
+<p class="lede">A <b>source</b> is an upstream system that feeds the ingestion layer. Adding one means writing a <b>connector</b> that
+extracts on a schedule, validates every response against a <b>contract</b>, lands the raw payload in <b>bronze</b>, and upserts
+conformed rows into <b>silver</b> (<code>items</code> + <code>signals</code>), with tests. Once dbt is set up, you also add
+a <b>dbt source</b> with a freshness check and a <b>staging model</b>.</p>
+<p class="muted small">Plan (your call, Nov 4): get all sources in first, then build the transform layer with dbt. You can follow this page yourself in PyCharm, or tell me "add &lt;source&gt;" and I follow the same steps.</p>
+
+<div class="cov">
+  <div class="card"><div class="v">2</div><div class="l">live</div></div>
+  <div class="card"><div class="v">1</div><div class="l">built, waiting (Twitch)</div></div>
+  <div class="card"><div class="v">2</div><div class="l">buildable now</div></div>
+  <div class="card"><div class="v">3</div><div class="l">waiting on approval</div></div>
+  <div class="card"><div class="v">4</div><div class="l">skipped / deferred</div></div>
+</div>
+
+<!-- ============ CATALOG ============ -->
+<h2>1 · Source catalog</h2>
+<p class="muted">Every candidate source and where it stands. "Verified" means I called it on Nov 4 and saw a response.</p>
+<div class="tw"><table>
+  <thead><tr><th>Source</th><th>What we'd get</th><th>Access</th><th>Verified</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td class="nw"><b>YouTube Data API v3</b></td><td>New videos; views, likes, comments hourly; subscribers daily</td><td>API key · 10,000 units/day</td><td>Live since Nov 3</td><td><span class="chip live">Live</span></td></tr>
+    <tr><td class="nw"><b>Twitch Helix</b></td><td>Live streams (viewers), top clips (views)</td><td>Client ID + secret</td><td>Keys OK; no "Grand Theft Auto VI" category yet</td><td><span class="chip wait">Waiting</span></td></tr>
+    <tr><td class="nw"><b>Wikipedia Pageviews</b></td><td>Daily views of GTA articles</td><td>None (User-Agent)</td><td>Live since Nov 3</td><td><span class="chip live">Live</span></td></tr>
+    <tr><td class="nw"><b>News RSS</b></td><td>Headlines, links, publish times from gaming news sites. No engagement numbers.</td><td>None</td><td>8/8 feeds respond, 7 had GTA headlines: GameSpot, Eurogamer, IGN, Kotaku, GamesRadar, PC Gamer, Polygon, VGC<span class="sub">Rockstar Newswire: no feed found (404)</span></td><td><span class="chip now">Build now</span></td></tr>
+    <tr><td class="nw"><b>Bluesky</b></td><td>Posts mentioning GTA 6, with likes, reposts, replies</td><td>Free account + app password</td><td>Public search returns 403, so a login is needed</td><td><span class="chip now">Build now</span><span class="sub">needs your app password</span></td></tr>
+    <tr><td class="nw"><b>Reddit</b></td><td>Posts in GTA subreddits, with score and comment count. The biggest GTA community.</td><td>Approved API access (OAuth); commercial use needs an agreement</td><td>Application (keys guide B)</td><td><span class="chip wait">Approval</span><span class="sub">can be built against mocks first</span></td></tr>
+    <tr><td class="nw"><b>Google Trends API</b></td><td>Search interest over time</td><td>Alpha access by application</td><td>Application (keys guide B)</td><td><span class="chip wait">Approval</span></td></tr>
+    <tr><td class="nw"><b>Threads</b></td><td>Posts by keyword</td><td>Meta app review, needs a privacy policy URL</td><td>Not yet</td><td><span class="chip wait">After site live</span></td></tr>
+    <tr><td class="nw"><b>GDELT</b></td><td>Global news volume + article lists</td><td>None</td><td>Rate-limited my IP during the test: 1 request / 5 s, and the error comes back as text with HTTP 200</td><td><span class="chip plan">Optional</span><span class="sub">overlaps with RSS</span></td></tr>
+    <tr><td class="nw"><b>Mastodon</b></td><td>#gta6 posts</td><td>None</td><td>Works, but the posts had 0 likes / 0 boosts</td><td><span class="chip plan">Skip</span><span class="sub">low signal</span></td></tr>
+    <tr><td class="nw"><b>X (Twitter)</b></td><td>Posts + engagement</td><td>Paid API</td><td>n/a</td><td><span class="chip plan">Not planned</span><span class="sub">costs money: ask first</span></td></tr>
+    <tr><td class="nw"><b>YouTube comment text · Twitch chat</b></td><td>What viewers ask · live chat</td><td>Existing keys</td><td>n/a</td><td><span class="chip plan">Deferred</span><span class="sub">your call, Nov 3</span></td></tr>
+    <tr class="excluded"><td class="nw"><b>TikTok · Instagram · Facebook</b></td><td>n/a</td><td>n/a</td><td>n/a</td><td><span class="chip no">Excluded</span><span class="sub">by the brief</span></td></tr>
+    <tr class="excluded"><td class="nw"><b>Any scraping</b></td><td>e.g. pytrends, Reddit <code>.json</code> without OAuth, HTML pages</td><td>n/a</td><td>n/a</td><td><span class="chip no">Never</span><span class="sub">official APIs only</span></td></tr>
+  </tbody>
+</table></div>
+
+<h2>2 · Order to get "all sources in"</h2>
+<p class="muted">Free sources with no approval first, then the ones that wait on approval. dbt starts after the gate.</p>
+<div class="card order">
+  <div><div><b>News RSS</b><span>No key, today. Gives news momentum: how many outlets cover a topic per hour.</span></div></div>
+  <div><div><b>Bluesky</b><span>Once your app password is in <code>.env</code>. Gives social posts with engagement.</span></div></div>
+  <div><div><b>Reddit, built against mocks</b><span>Reddit's API format is stable and documented, so the connector + tests can be ready before approval and switched on the day the key arrives.</span></div></div>
+  <div><div><b>Google Trends</b><span>When alpha access is granted. Optional: nothing breaks without it.</span></div></div>
+  <div class="gate"><div><b>Gate: sources in → start dbt (P3.1)</b><span>Threads joins after the site is live; it doesn't block dbt.</span></div></div>
+</div>
+
+<!-- ============ TWO WAYS ============ -->
+<h2>3 · Two ways to add data</h2>
+<p class="muted">Often you don't need a new connector at all.</p>
+<div class="two">
+  <div class="card"><h3>A · Extend an existing source (config only)</h3>
+    <p class="small">Edit <code>trend_radar/config.py</code>, then <code>docker compose up -d --build</code>. No new code or tests.</p>
+    <div class="code"><span class="fn">trend_radar/config.py: more Wikipedia articles (free)</span><button class="copy">Copy</button>
+<pre>WIKIPEDIA_ARTICLES = [
+    "Grand_Theft_Auto_VI",
+    # ...
+    "Vice_City",          # exact title from the article URL, underscores for spaces
+]</pre></div>
+    <div class="code"><span class="fn">trend_radar/config.py: another YouTube search (costs quota)</span><button class="copy">Copy</button>
+<pre>YOUTUBE_SEARCHES = [("GTA 6", "date"), ("GTA 6", "viewCount"), ("GTA VI", "date")]
+YOUTUBE_SEARCH_EVERY_HOURS = 2   # 3 searches x 12 runs = 36/day, under the 60/day budget</pre></div>
+    <p class="small muted">Each search costs 100 units. The <code>assert</code> in <code>config.py</code> stops the worker from starting if you go over 60 searches/day (6,000 units).</p>
+  </div>
+  <div class="card"><h3>B · New source (new connector)</h3>
+    <p class="small">For a new upstream system. Follow the 10 steps below. About 2–4 hours per source with tests.</p>
+    <ul class="small" style="padding-left:18px;margin:0">
+      <li>1 Python module + 1 test file</li>
+      <li>3 lines of config, 1 env line, 1 compose line, 4 scheduler lines</li>
+      <li>1 row in the docs</li>
+      <li>From P3.1: 1 dbt source entry + 1 staging model</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ STEPS ============ -->
+<h2>4 · Adding a new source, step by step</h2>
+<p class="muted">The template is a generic JSON API called <code>example</code>: replace the name, URL and fields. The connector and tests below were run and pass (3/3, Nov 4).</p>
+
+<div class="step"><div class="n">1</div><div>
+  <h3>Profile the source <span class="de">source assessment</span></h3>
+  <p class="small">Answer these before writing code. They decide the design.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Question</th><th>Why it matters</th></tr></thead>
+    <tbody>
+      <tr><td>Is it an official API or feed?</td><td>Official only, never scraping (brief rule)</td></tr>
+      <tr><td>Auth: none, key, OAuth or login session?</td><td>Where the secret goes; whether a token needs caching and refresh</td></tr>
+      <tr><td>Limits: quota, rate limit, what errors look like?</td><td>Schedule and budget. Some APIs return 200 with an error body (GDELT).</td></tr>
+      <tr><td>What is one record? (post, article, stream)</td><td>The <b>grain</b>, which becomes <code>item_type</code></td></tr>
+      <tr><td>Which numbers change over time?</td><td>Those become <code>signals</code>. None → items only (derive counts in dbt)</td></tr>
+      <tr><td>How do we fetch only what's new?</td><td><b>Incremental strategy</b>: time window, cursor, or since-ID</td></tr>
+      <tr><td>Is history available? Are values revised later?</td><td><b>Backfill</b> and <b>lookback window</b> (like Wikipedia's 30 days)</td></tr>
+      <tr><td>Terms: storage limits, retention, commercial use, attribution?</td><td>What we may store, for how long, and what the site must credit</td></tr>
+    </tbody>
+  </table></div>
+</div></div>
+
+<div class="step"><div class="n">2</div><div>
+  <h3>Config: keys and settings <span class="de">configuration</span></h3>
+  <p class="small">Three files. Keys come from env vars only; the real values go in <code>.env</code>, which is never committed.</p>
+  <div class="code"><span class="fn">trend_radar/config.py</span><button class="copy">Copy</button>
+<pre># --- Example (posts mentioning GTA 6; rate limit: N requests/min) ---
+EXAMPLE_API_KEY = os.environ.get("EXAMPLE_API_KEY", "")
+EXAMPLE_QUERY = "GTA 6"
+EXAMPLE_MAX_PAGES = 5  # x100 posts</pre></div>
+  <div class="code"><span class="fn">.env.example (committed, no values)</span><button class="copy">Copy</button>
+<pre>EXAMPLE_API_KEY=               # where to get it + minimum permission needed</pre></div>
+  <div class="code"><span class="fn">docker-compose.yml → services.worker.environment</span><button class="copy">Copy</button>
+<pre>      EXAMPLE_API_KEY: ${EXAMPLE_API_KEY:-}</pre></div>
+  <div class="note">Compose passes an unset variable as an empty string. For settings with a fallback, use <code>os.environ.get("X") or "default"</code>, not <code>get("X", "default")</code>.</div>
+</div></div>
+
+<div class="step"><div class="n bronze">3</div><div>
+  <h3>Write the connector <span class="de">extract · contract · load</span></h3>
+  <p class="small">One file, <code>trend_radar/connectors/example.py</code>. Four parts, each matching a layer:</p>
+  <div class="callouts">
+    <div class="z-c"><b>Contract</b>pydantic models with only the fields you use. Schema drift fails the run.</div>
+    <div class="z-b"><b>Extract → bronze</b><code>_get()</code> with <code>@retry_http</code>, saves every body to <code>raw_responses</code>.</div>
+    <div class="z-s"><b>Conform → silver</b><code>upsert_items</code> / <code>upsert_signals</code> on a time bucket. Idempotent.</div>
+    <div class="z-o"><b>Run log</b><code>connector_run()</code> records status, row count and error, whatever happens.</div>
+  </div>
+  <div class="code"><span class="fn">trend_radar/connectors/example.py</span><button class="copy">Copy</button>
+<pre>"""Example: posts mentioning GTA 6, with like and reply counts. Hourly, API key."""
+
+from datetime import datetime
+
+import httpx
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from trend_radar import config
+from trend_radar.connectors.common import retry_http, this_hour, upsert_items, upsert_signals
+from trend_radar.db import RawResponse, connector_run
+
+API = "https://api.example.com/v1/"
+SOURCE = "example"  # lowercase; stored on every row and in connector_runs
+
+
+# Contract: only the fields we use. If the API renames or drops one, validation fails the run loudly.
+class _Post(BaseModel):
+    id: str
+    title: str
+    url: str
+    author_id: str
+    author_name: str
+    created_at: datetime
+    likes: int
+    replies: int
+
+
+class SearchResponse(BaseModel):
+    posts: list[_Post] = []
+    cursor: str | None = None
+
+
+def client() -&gt; httpx.Client:
+    # Secret in a header, never in the URL: httpx logs every request URL.
+    return httpx.Client(base_url=API, headers={"Authorization": f"Bearer {config.EXAMPLE_API_KEY}"}, timeout=30)
+
+
+@retry_http  # retries 429 / 5xx / network errors with backoff; other 4xx fail fast
+def _get(s: Session, http: httpx.Client, endpoint: str, params: dict) -&gt; dict:
+    r = http.get(endpoint, params=params)
+    r.raise_for_status()
+    data = r.json()
+    s.add(RawResponse(source=SOURCE, endpoint=endpoint, payload=data))  # bronze: exactly as received
+    return data
+
+
+def collect(http: httpx.Client | None = None) -&gt; None:
+    http = http or client()
+    hour = this_hour()  # time bucket: a re-run in the same hour overwrites instead of duplicating
+    with connector_run(SOURCE, "collect") as (s, run):
+        params = {"q": config.EXAMPLE_QUERY, "limit": 100}
+        for _ in range(config.EXAMPLE_MAX_PAGES):
+            page = SearchResponse.model_validate(_get(s, http, "search", params))
+            upsert_items(s, [
+                dict(source=SOURCE, item_id=p.id, item_type="post", title=p.title, url=p.url,
+                     channel_id=p.author_id, channel_title=p.author_name, published_at=p.created_at)
+                for p in page.posts
+            ])
+            upsert_signals(s, [
+                dict(source=SOURCE, item_id=p.id, metric_name=name, metric_value=value, captured_at=hour)
+                for p in page.posts
+                for name, value in (("likes", p.likes), ("replies", p.replies))
+            ])
+            run.items_count += len(page.posts)
+            s.commit()  # commit per page: a crash on page 5 keeps pages 1-4
+            if not page.cursor:
+                break
+            params["cursor"] = page.cursor</pre></div>
+</div></div>
+
+<div class="step"><div class="n">4</div><div>
+  <h3>Schedule it <span class="de">orchestration</span></h3>
+  <p class="small">Gated on its keys, so a missing key disables the job with a warning instead of crashing the worker. Pick a free minute: :05 and :10 are taken.</p>
+  <div class="code"><span class="fn">trend_radar/scheduler.py</span><button class="copy">Copy</button>
+<pre>from trend_radar.connectors import example, twitch, wikipedia, youtube
+...
+    if config.EXAMPLE_API_KEY:
+        sched.add_job(example.collect, "cron", minute=15, next_run_time=now)
+    else:
+        log.warning("EXAMPLE_API_KEY not set: Example jobs disabled")</pre></div>
+</div></div>
+
+<div class="step"><div class="n">5</div><div>
+  <h3>Test it <span class="de">contract + idempotency tests</span></h3>
+  <p class="small">A fake API via <code>httpx.MockTransport</code> against the real test database. Three tests minimum:</p>
+  <ul><li><b>Data lands, and a re-run doesn't duplicate</b> (idempotency)</li>
+      <li><b>The source's failure mode</b>: bad key fails fast, no retries</li>
+      <li><b>Schema drift</b>: a changed response fails the run and loads nothing</li></ul>
+  <div class="code"><span class="fn">tests/test_example.py</span><button class="copy">Copy</button>
+<pre>import httpx
+import pytest
+from pydantic import ValidationError
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from trend_radar.connectors import example
+from trend_radar.db import ConnectorRun, Item, Signal, engine
+
+
+def fake_api(pages):
+    """Serves `pages` in order and follows the cursor, like the real API."""
+    seen = []
+
+    def handler(req):
+        seen.append(req)
+        i = int(req.url.params.get("cursor", 0))
+        more = i + 1 &lt; len(pages)
+        return httpx.Response(200, json={"posts": pages[i], "cursor": str(i + 1) if more else None})
+
+    return httpx.Client(base_url=example.API, transport=httpx.MockTransport(handler)), seen
+
+
+def post(i, likes=10):
+    return {"id": f"p{i}", "title": f"GTA 6 post {i}", "url": f"https://example.com/p{i}",
+            "author_id": "a1", "author_name": "Someone", "created_at": "2026-11-04T10:00:00Z",
+            "likes": likes, "replies": 1}
+
+
+def test_collect_follows_pages_and_rerun_is_idempotent():
+    http, seen = fake_api([[post(1), post(2)], [post(3)]])
+
+    example.collect(http)
+    example.collect(http)  # same hour: overwrite, never duplicate
+
+    with Session(engine) as s:
+        assert s.scalar(select(func.count()).select_from(Item)) == 3
+        assert s.scalar(select(func.count()).select_from(Signal)) == 6  # 3 posts x (likes, replies)
+        assert {r.status for r in s.scalars(select(ConnectorRun))} == {"ok"}
+    assert len(seen) == 4  # 2 pages x 2 runs
+
+
+def test_bad_key_fails_fast_without_retrying():
+    seen = []
+    http = httpx.Client(base_url=example.API, transport=httpx.MockTransport(
+        lambda req: seen.append(req) or httpx.Response(401, json={"error": "bad key"})))
+
+    with pytest.raises(httpx.HTTPStatusError):
+        example.collect(http)
+
+    assert len(seen) == 1  # a 4xx is never retried
+    with Session(engine) as s:
+        assert s.scalars(select(ConnectorRun.status)).one() == "error"
+
+
+def test_schema_change_fails_the_run_instead_of_loading_bad_rows():
+    http, _ = fake_api([[{"id": "p1"}]])  # upstream dropped fields
+
+    with pytest.raises(ValidationError):
+        example.collect(http)
+
+    with Session(engine) as s:
+        assert s.scalar(select(func.count()).select_from(Item)) == 0
+        assert s.scalars(select(ConnectorRun.status)).one() == "error"</pre></div>
+  <div class="code"><span class="fn">terminal</span><button class="copy">Copy</button>
+<pre>uv run pytest tests/test_example.py -q   # then the whole suite: uv run pytest -q</pre></div>
+</div></div>
+
+<div class="step"><div class="n silver">6</div><div>
+  <h3>Run it for real <span class="de">verification</span></h3>
+  <p class="small">Rebuild the worker, trigger one run, then check all three places the data lands.</p>
+  <div class="code"><span class="fn">terminal</span><button class="copy">Copy</button>
+<pre>docker compose up -d --build
+docker compose exec worker python -c "from trend_radar.connectors import example; example.collect()"</pre></div>
+  <div class="code"><span class="fn">terminal: check run log, silver and bronze</span><button class="copy">Copy</button>
+<pre>docker compose exec postgres psql -U trend_radar -c "
+  select job, status, items_count, error from connector_runs where source = 'example' order by id desc limit 3;" -c "
+  select item_type, count(*) from items where source = 'example' group by 1;" -c "
+  select metric_name, count(*), max(captured_at) from signals where source = 'example' group by 1;" -c "
+  select jsonb_pretty(payload) from raw_responses where source = 'example' order by id desc limit 1;"</pre></div>
+</div></div>
+
+<div class="step"><div class="n">7</div><div>
+  <h3>dbt source + staging model <span class="de">transform layer (from P3.1)</span></h3>
+  <p class="small">Skip this until the dbt project exists. The file layout is fixed when P3.1 creates the project; this shows the shape.</p>
+  <div class="code"><span class="fn">dbt/models/staging/_sources.yml: one freshness check per source on the shared table</span><button class="copy">Copy</button>
+<pre>      - name: example_signals
+        identifier: signals
+        loaded_at_field: captured_at
+        freshness:
+          warn_after: {count: 2, period: hour}
+          error_after: {count: 6, period: hour}
+          filter: "source = 'example'"</pre></div>
+  <div class="code"><span class="fn">dbt/models/staging/stg_example__posts.sql</span><button class="copy">Copy</button>
+<pre>select
+    item_id       as post_id,
+    title,
+    url,
+    channel_title as author,
+    published_at
+from {{ source('warehouse', 'items') }}
+where source = 'example' and item_type = 'post'</pre></div>
+  <div class="code"><span class="fn">dbt/models/staging/_models.yml</span><button class="copy">Copy</button>
+<pre>  - name: stg_example__posts
+    columns:
+      - name: post_id
+        data_tests: [unique, not_null]</pre></div>
+</div></div>
+
+<div class="step"><div class="n">8</div><div>
+  <h3>Document it <span class="de">catalog</span></h3>
+  <ul><li><code>docs/CONNECTORS.md</code>: one row (job, schedule, metrics, cost, keys)</li>
+      <li><code>docs/architecture.html</code>: the source card in layer ① and its job in the orchestration table</li>
+      <li><code>docs/PLAN.md</code>: tick the P2.9 line with how it was verified</li></ul>
+</div></div>
+
+<div class="step"><div class="n">9</div><div>
+  <h3>Commit <span class="de">version control</span></h3>
+  <div class="code"><span class="fn">terminal</span><button class="copy">Copy</button>
+<pre>git add -A && git status        # make sure .env is NOT listed
+git commit -m "feat(P2.9): example connector"
+git push</pre></div>
+</div></div>
+
+<div class="step"><div class="n">10</div><div>
+  <h3>Watch the first day <span class="de">observability</span></h3>
+  <p class="small">After 24h: every scheduled run is in <code>connector_runs</code> with status <code>ok</code>, row counts look plausible, and quota or rate limits stay under budget.</p>
+</div></div>
+
+<!-- ============ SPECIAL CASES ============ -->
+<h2>5 · Special cases (with an existing example to copy)</h2>
+<p class="muted">Most sources differ from the template in one way. Each pattern already exists in the code.</p>
+<div class="cases">
+  <div class="card"><div class="k">Login / token</div><h3>Session token that expires</h3>
+    <p>Cache the token in a module-level dict; on 401, clear it and retry once. Copy <code>twitch.py</code> (<code>_token</code>, <code>_headers</code>). Bluesky works this way.</p></div>
+  <div class="card"><div class="k">Quota API</div><h3>Daily unit budget</h3>
+    <p>Charge each call to <code>run.quota_used</code> and commit <i>before</i> calling; stop at a threshold. Copy <code>youtube.py</code> (<code>_call</code>, <code>quota_used_today</code>).</p></div>
+  <div class="card"><div class="k">Upstream not ready</div><h3>Resource doesn't exist yet</h3>
+    <p>Set <code>run.status, run.error = "waiting", "…"</code> and return. It isn't an error and won't alert. Copy <code>twitch.collect</code>.</p></div>
+  <div class="card"><div class="k">Late data</div><h3>Values arrive late or get revised</h3>
+    <p>Re-fetch a lookback window every run; the upsert overwrites corrections. Copy <code>wikipedia.collect</code> (30 days).</p></div>
+  <div class="card"><div class="k">No metrics</div><h3>Records without numbers (RSS)</h3>
+    <p>Write <code>items</code> only. Don't invent a "mentions = 1" signal at ingest; count mentions per hour in dbt from <code>published_at</code>.</p></div>
+  <div class="card"><div class="k">Not JSON</div><h3>XML feeds</h3>
+    <p>Bronze is JSONB: store <code>{"url": …, "entries": [...]}</code> with the parsed entries. Store titles, links and times only, never article text.</p></div>
+  <div class="card"><div class="k">Strict rate limit</div><h3>One request every N seconds</h3>
+    <p>Space requests out in the loop and keep pages few. If errors come back as HTTP 200 with text, the pydantic contract fails the run, which is what you want.</p></div>
+  <div class="card"><div class="k">Missing items</div><h3>404 for one item isn't a failure</h3>
+    <p>Return <code>None</code> from <code>_get</code>, log a warning, continue. Copy <code>wikipedia._get</code>.</p></div>
+</div>
+
+<!-- ============ CONVENTIONS ============ -->
+<h2>6 · Naming conventions</h2>
+<div class="tw"><table>
+  <thead><tr><th>Thing</th><th>Rule</th><th>Examples</th></tr></thead>
+  <tbody>
+    <tr><td><code>SOURCE</code></td><td>lowercase, one word</td><td><code>youtube</code>, <code>rss</code>, <code>bluesky</code>, <code>reddit</code></td></tr>
+    <tr><td><code>item_type</code></td><td>singular noun for the grain</td><td><code>video</code>, <code>stream</code>, <code>clip</code>, <code>article</code>, <code>post</code>, <code>channel</code></td></tr>
+    <tr><td><code>metric_name</code></td><td>snake_case count that changes over time</td><td><code>views</code>, <code>likes</code>, <code>comments</code>, <code>viewers</code>, <code>score</code></td></tr>
+    <tr><td>Job</td><td><code>&lt;source&gt;.&lt;verb&gt;</code> (the function name)</td><td><code>youtube.discover</code>, <code>rss.collect</code></td></tr>
+    <tr><td>Config</td><td><code>&lt;SOURCE&gt;_&lt;THING&gt;</code></td><td><code>TWITCH_MAX_STREAM_PAGES</code></td></tr>
+    <tr><td>Test file</td><td><code>tests/test_&lt;source&gt;.py</code></td><td><code>tests/test_rss.py</code></td></tr>
+    <tr><td>dbt staging</td><td><code>stg_&lt;source&gt;__&lt;entity&gt;</code></td><td><code>stg_youtube__videos</code></td></tr>
+    <tr><td>Commit</td><td><code>feat(P2.9): &lt;source&gt; connector</code></td><td><code>feat(P2.9): rss connector</code></td></tr>
+  </tbody>
+</table></div>
+
+<!-- ============ MISTAKES ============ -->
+<h2>7 · Common mistakes</h2>
+<div class="card mistakes">
+  <div class="mistake"><div class="bad">Key in the URL (<code>?key=…</code>)</div><div class="good">Header or POST body. httpx logs every URL.</div></div>
+  <div class="mistake"><div class="bad">Exact fetch time as <code>captured_at</code></div><div class="good"><code>this_hour()</code> or a date. Otherwise every run adds rows.</div></div>
+  <div class="mistake"><div class="bad">One commit at the end of the run</div><div class="good">Commit per page, so a crash keeps what was fetched.</div></div>
+  <div class="mistake"><div class="bad">Retrying 401 / 403 / 404</div><div class="good"><code>@retry_http</code> already retries only 429, 5xx and network errors.</div></div>
+  <div class="mistake"><div class="bad">Inventing metrics at ingest</div><div class="good">Store what the API gives; derive counts in dbt.</div></div>
+  <div class="mistake"><div class="bad">Storing article text or personal data</div><div class="good">Titles, links, public names, counts only.</div></div>
+  <div class="mistake"><div class="bad">Forgetting the compose env line</div><div class="good">Without it the worker sees no key and silently skips the job (only a warning in the logs).</div></div>
+  <div class="mistake"><div class="bad">Trusting any HTTP 200</div><div class="good">Let the pydantic contract decide. A 200 with an error text must fail.</div></div>
+</div>
+
+<!-- ============ DOD ============ -->
+<h2>8 · Definition of done for a source</h2>
+<p class="muted">Ticks are saved in this browser only.</p>
+<div class="card dod" id="dod">
+  <div class="bar"><i id="dodbar"></i></div>
+  <label><input type="checkbox" data-k="profile"> Source profiled: auth, limits, grain, incremental strategy, terms</label>
+  <label><input type="checkbox" data-k="config"> Config + <code>.env.example</code> + compose env line</label>
+  <label><input type="checkbox" data-k="connector"> Connector: contract, bronze write, idempotent silver upserts, run log</label>
+  <label><input type="checkbox" data-k="schedule"> Scheduled and gated on its keys</label>
+  <label><input type="checkbox" data-k="tests"> 3 tests pass (lands + idempotent · failure mode · schema drift), full suite green</label>
+  <label><input type="checkbox" data-k="real"> Real run: <code>connector_runs</code> ok, rows in silver, raw payload looks right</label>
+  <label><input type="checkbox" data-k="docs"> CONNECTORS.md row, architecture page, PLAN.md ticked</label>
+  <label><input type="checkbox" data-k="dbt"> dbt source + freshness + staging model with tests (from P3.1)</label>
+  <label><input type="checkbox" data-k="commit"> Committed and pushed; <code>.env</code> not in the commit</label>
+  <label><input type="checkbox" data-k="day1"> First 24h reviewed: every run ok, under budget</label>
+  <button id="reset" type="button">Clear ticks</button>
+</div>
+
+<h2>Next steps</h2>
+<div class="next">
+  <div class="card"><h3>Me</h3><ol>
+    <li>Bronze TTL: daily job that deletes raw responses after 30 days.</li>
+    <li><b>News RSS connector</b> (no key): 8 feeds, keep only GTA-related headlines.</li>
+    <li><b>Bluesky connector</b> once your app password is in <code>.env</code>.</li>
+    <li>Reddit connector against mocks, ready for the approval.</li>
+  </ol></div>
+  <div class="card"><h3>You</h3><ol>
+    <li>Bluesky: Settings → Privacy and security → App passwords → add one. Put <code>BLUESKY_HANDLE</code> and <code>BLUESKY_APP_PASSWORD</code> in <code>.env</code>.</li>
+    <li>Check the Reddit and Google Trends applications (keys guide, section B).</li>
+    <li>Keep the Mac plugged in and awake.</li>
+  </ol></div>
+</div>
+
+<footer>Unofficial, fan-made tool. Not affiliated with Rockstar Games or Take-Two Interactive. Official APIs only.</footer>
+</main>
+<script>
+  document.querySelectorAll(".copy").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var text = b.parentElement.querySelector("pre").innerText;
+      var done = function () { b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1200); };
+      try { navigator.clipboard.writeText(text).then(done, function () { b.textContent = "Select + ⌘C"; }); }
+      catch (e) { b.textContent = "Select + ⌘C"; }
+    });
+  });
+  (function () {
+    var boxes = Array.prototype.slice.call(document.querySelectorAll("#dod input"));
+    var key = function (b) { return "addsrc:" + b.dataset.k; };
+    var paint = function () {
+      var n = boxes.filter(function (b) { return b.checked; }).length;
+      document.getElementById("dodbar").style.width = (100 * n / boxes.length) + "%";
+    };
+    boxes.forEach(function (b) {
+      try { b.checked = localStorage.getItem(key(b)) === "1"; } catch (e) {}
+      b.addEventListener("change", function () {
+        try { localStorage.setItem(key(b), b.checked ? "1" : "0"); } catch (e) {}
+        paint();
+      });
+    });
+    document.getElementById("reset").addEventListener("click", function () {
+      boxes.forEach(function (b) { b.checked = false; try { localStorage.removeItem(key(b)); } catch (e) {} });
+      paint();
+    });
+    paint();
+  })();
+</script>
+</body>
+</html>

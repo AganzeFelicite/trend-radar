@@ -58,7 +58,7 @@ Every hour we collect new GTA 6 videos, clips and streams (plus daily Wikipedia 
 - **Backend:** FastAPI; SQLAlchemy 2 + Alembic.
 - **Worker:** one Python process, APScheduler (`max_instances=1` per job = job lock). `httpx` + `tenacity` + `pydantic` for connectors.
 - **Database:** PostgreSQL. No partitioning at launch; index `signals(item_id, captured_at)`. Raw API responses stored as `jsonb` in `raw_responses`, deleted after 30 days.
-- **Aggregations:** plain SQL views / materialized views refreshed by the worker after each ingestion cycle.
+- **Transformations:** dbt Core (dbt-postgres) for silver → gold: sources with freshness checks, staging / intermediate / mart models, dbt tests; `dbt build` run by the worker after each ingestion cycle. Topic extraction stays a Python step. *(Changed Nov 4: owner chose dbt over plain SQL views.)*
 - **Caching:** Next.js `revalidate` (data changes hourly). No Redis.
 - **Quota counting / alert dedupe:** Postgres (`connector_runs` sums; unique constraints).
 - **Email:** Resend HTTP API, sent from the worker, HTML via stdlib `string.Template`; HMAC-signed unsubscribe links.
@@ -170,7 +170,7 @@ Phase done when: three sources land in `signals`, a backup restores, and a push 
 
 ### Phase 3 — The brain (Nov 6–8)
 Phase done when: hourly top topics look sensible to a human, with no obvious duplicates or spam.
-- **P3.1** SQL views: clean signals → hourly aggregates; refreshed after each cycle  - [ ] Data checks pass: no duplicates, no negative growth, no null timestamps
+- **P3.1** dbt project: sources + freshness, staging models, `int_signal_deltas` (hourly growth); `dbt build` after each cycle  - [ ] Data checks pass: no duplicates, no negative growth, no null timestamps
 - **P3.2** Title cleaning + keyword topics (aliases + n-grams) → `topics`, `topic_items`  - [ ] Same topic keeps same ID hour to hour
 - **P3.3** Momentum scoring + flags → `topic_scores` hourly; spam/reupload filters; `docs/SCORING.md`
   - [ ] I review the top 20 and approve (or we trigger the embeddings upgrade path)
@@ -209,7 +209,7 @@ Phase done when: the site is public and stable through release day.
 - **P8.3** Auth.js magic links + Stripe + Pro features + per-user email/Telegram alerts
 - **P8.4** New sources behind flags: Bluesky, RSS, Threads, X (spend cap), Reddit (after approval)
 - **P8.5** "Make this now" list (high TALK/WATCH momentum, low MAKE coverage)
-- **P8.6** Upgrade triggers, documented: Redis when >1 worker or response caching isn't enough · dbt when SQL views get hard to manage · partition `signals` near 100M rows · Dagster when jobs multiply · bigger VPS when resources stay high
+- **P8.6** Upgrade triggers, documented: Redis when >1 worker or response caching isn't enough · partition `signals` near 100M rows · Dagster when jobs multiply · bigger VPS when resources stay high
 
 ---
 
