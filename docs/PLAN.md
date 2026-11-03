@@ -21,8 +21,8 @@ Done when: launch keys are in hand and slow applications are submitted.
   - [x] Visibility verified `PRIVATE`
   - Verified: `gh repo view --json name,visibility,url` → `{"name":"trend-radar","url":"https://github.com/AganzeFelicite/trend-radar","visibility":"PRIVATE"}`
 - [ ] **P0.1** Accounts/keys checklist for owner; applications submitted (Reddit, Threads, Google Trends)
-  - [ ] List delivered
-  - [ ] `.env.example` lists every variable
+  - [x] List delivered (in chat, Nov 3)
+  - [x] `.env.example` lists every variable
   - [ ] Each token minimum-permission
   - Verified:
 - [ ] **P0.2** Local tooling: ansible, ansible-lint, docker, gh
