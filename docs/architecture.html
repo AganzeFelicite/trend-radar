@@ -161,7 +161,7 @@
 <body>
 <main>
 
-<p class="muted small">Trend Radar · data architecture · snapshot Tue Nov 3, 2026, 16:45 UTC</p>
+<p class="muted small">Trend Radar · data architecture · snapshot Tue Nov 3, 2026, 16:45 UTC · updated Nov 4: News RSS + bronze TTL live</p>
 <h1>Data architecture: where we stand</h1>
 <p class="lede">An hourly <b>batch pipeline</b> on a <b>medallion architecture</b>. Connectors <b>extract</b> from three upstream APIs,
 <b>load</b> the raw payloads into a <b>bronze</b> zone and conformed records into <b>silver</b>, all in one Postgres warehouse.
@@ -174,7 +174,7 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
 </div>
 
 <div class="kpis">
-  <div class="card kpi"><div class="v">2 / 3</div><div class="l">sources in production (Twitch: upstream not ready)</div></div>
+  <div class="card kpi"><div class="v">3 / 4</div><div class="l">sources in production (Twitch: upstream not ready)</div></div>
   <div class="card kpi"><div class="v">32</div><div class="l">bronze rows (54 kB raw JSON)</div></div>
   <div class="card kpi"><div class="v">851</div><div class="l">silver rows (103 items + 748 signals)</div></div>
   <div class="card kpi"><div class="v">0 / 9</div><div class="l">pipeline runs failed</div></div>
@@ -189,7 +189,7 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
 <div class="arch">
   <div class="flow">
     <div class="stage z-src">
-      <div class="sh"><span class="num">①</span><div><div class="term">Source systems (upstream)</div><div class="tool">YouTube Data API v3 · Twitch Helix · Wikimedia Pageviews REST</div></div><span class="chip live">2 live · 1 waiting</span></div>
+      <div class="sh"><span class="num">①</span><div><div class="term">Source systems (upstream)</div><div class="tool">YouTube Data API v3 · Twitch Helix · Wikimedia Pageviews REST · News RSS (8 feeds)</div></div><span class="chip live">3 live · 1 waiting</span></div>
       <ul><li>Official APIs only. Pull-based (we poll), no webhooks or streams.</li>
           <li>Each has its own limits: YouTube 10,000 units/day, Twitch 800 points/min, Wikipedia asks for a polite User-Agent.</li></ul>
     </div>
@@ -204,9 +204,9 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
     <div class="hop"><b>LOAD</b> append-only, the payload exactly as received</div>
 
     <div class="stage z-bronze">
-      <div class="sh"><span class="num">③</span><div><div class="term">Bronze: raw landing zone</div><div class="tool">Postgres JSONB table <code>raw_responses</code></div></div><span class="chip live">Live · TTL next</span></div>
+      <div class="sh"><span class="num">③</span><div><div class="term">Bronze: raw landing zone</div><div class="tool">Postgres JSONB table <code>raw_responses</code></div></div><span class="chip live">Live</span></div>
       <ul><li>Immutable record of what each source returned: audit trail, debugging, and a way to <b>replay</b> into silver (replay not built yet).</li>
-          <li><b>Retention / TTL</b>: 30 days (YouTube's storage rule). The purge job is next.</li></ul>
+          <li><b>Retention / TTL</b>: 30 days (YouTube's storage rule), enforced daily at 03:30 UTC by <code>maintenance.purge_raw</code>.</li></ul>
     </div>
     <div class="hop"><b>CONFORM</b> parse · clean (HTML unescape) · deduplicate · upsert on natural key + time bucket</div>
 
@@ -377,7 +377,8 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
     <tr><td><code>youtube.channels</code></td><td class="nw">cron 06:15 daily</td><td><code>items</code> channels → channels.list</td><td>bronze, <code>items</code>, <code>signals</code></td><td>1 unit / 50 channels</td><td><span class="chip live">Live</span> <span class="sub">first run tomorrow</span></td></tr>
     <tr><td><code>twitch.collect</code></td><td class="nw">cron :10 (+ on start)</td><td>games → streams (paged) → clips</td><td>bronze, <code>items</code>, <code>signals</code></td><td>~13 calls</td><td><span class="chip wait">Waiting</span></td></tr>
     <tr><td><code>wikipedia.collect</code></td><td class="nw">interval 6h (+ on start)</td><td>per-article pageviews, 30-day lookback</td><td>bronze, <code>items</code>, <code>signals</code></td><td>6 calls</td><td><span class="chip live">Live</span></td></tr>
-    <tr class="planned"><td><code>maintenance.purge_raw</code></td><td class="nw">cron daily</td><td>bronze</td><td>deletes rows &gt; 30 days</td><td>0</td><td><span class="chip next">Next</span></td></tr>
+    <tr><td><code>rss.collect</code></td><td class="nw">cron :20 (+ on start)</td><td>8 RSS 2.0 feeds, GTA keyword filter</td><td>bronze (all entries), <code>items</code></td><td>8 requests</td><td><span class="chip live">Live</span></td></tr>
+    <tr><td><code>maintenance.purge_raw</code></td><td class="nw">cron 03:30 daily</td><td>bronze</td><td>deletes rows &gt; 30 days</td><td>0</td><td><span class="chip live">Live</span></td></tr>
   </tbody>
 </table></div>
 <div class="card" style="margin-top:12px">
@@ -416,7 +417,7 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
   <thead><tr><th>Layer</th><th>Status</th><th>What's left</th><th>Plan tasks</th></tr></thead>
   <tbody>
     <tr><td><b>Sources + ingestion</b></td><td><span class="chip live">Live</span></td><td>Twitch waits for its category; uploads-playlist discovery (needs a channel list)</td><td class="nw">P1.5 · P2.1–P2.3</td></tr>
-    <tr><td><i class="zone bronze"></i><b>Bronze</b></td><td><span class="chip live">Live</span></td><td>30-day purge job</td><td class="nw">P1.4 + cleanup</td></tr>
+    <tr><td><i class="zone bronze"></i><b>Bronze</b></td><td><span class="chip live">Live</span></td><td>Done: 30-day purge runs daily</td><td class="nw">P1.4 + cleanup</td></tr>
     <tr><td><i class="zone silver"></i><b>Silver</b></td><td><span class="chip part">Partial</span></td><td>Cleansed view with deltas + DQ assertions</td><td class="nw">P3.1</td></tr>
     <tr><td><i class="zone gold"></i><b>Gold</b></td><td><span class="chip plan">Not started</span></td><td>Topics, scores, spam filter, top-20 review</td><td class="nw">P3.2 · P3.3</td></tr>
     <tr><td><b>Serving</b></td><td><span class="chip plan">Not started</span></td><td>API, website, SEO, mobile</td><td class="nw">P4.1–P4.6</td></tr>
@@ -440,8 +441,6 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
     <span>Chinese, Portuguese, Arabic and French titles in the top 15. Keyword topics need either one language or language-aware normalisation. Decision needed before P3.2.</span></div></div>
   <div class="risk"><span class="lvl l">Low</span><div><b>Upstream not ready (Twitch)</b>
     <span>Handled by the sensor-style wait.</span></div></div>
-  <div class="risk"><span class="lvl l">Low</span><div><b>Bronze retention not enforced yet</b>
-    <span>The 30-day purge job is next (YouTube storage rule).</span></div></div>
 </div>
 
 <!-- ============ 10. RULES ============ -->

@@ -51,6 +51,7 @@ Done when: YouTube snapshots land hourly in Postgres on the server.
   - Verified:
 - [x] **P1.4** Alembic: `raw_responses`, `items`, `signals`, `connector_runs`
   - [x] Up and down clean
+  - [x] Bronze TTL: `maintenance.purge_raw` deletes `raw_responses` older than 30 days, daily 03:30 UTC (Nov 4; test + real run logged)
   - Verified: local Postgres: `alembic upgrade head` → 4 tables; `alembic downgrade base` → only `alembic_version`; `upgrade head` again OK; `alembic check` → "No new upgrade operations detected."
 - [ ] **P1.5** YouTube discovery + hourly snapshots + quota guard + `connector_runs` + pydantic + tenacity
   - [x] New videos in `items`; re-run creates no duplicates (test, mocked API)
@@ -95,7 +96,7 @@ Done when: three sources land in `signals`, a backup restores, and a push to `ma
   - [ ] Snapshots every hour, quota under budget
   - Verified:
 - [ ] **P2.9** More sources before Phase 3 (owner decision Nov 4: all sources in first, then dbt). Guide: [adding-sources.html](adding-sources.html)
-  - [ ] News RSS: 8 feeds verified Nov 4, no key
+  - [x] News RSS (Nov 4): 8 feeds, GTA keyword filter, `items` only; broken feeds isolated (`partial`). 3 tests; real run: 8/8 feeds ok, 24 GTA headlines from 7 outlets
   - [ ] Bluesky: needs a free app password (public search returns 403)
   - [ ] Reddit: when API access is approved (can be built against mocks first)
   - [ ] Google Trends API: when alpha access is granted
@@ -163,6 +164,7 @@ Done when: five outside people used the site without help, all sources are healt
 Done when: the site is public and stable through release day.
 
 - [ ] **P7.1** Pre-launch check: every source, alert, digest, backup
+  - [ ] YouTube API policy: confirm how long silver may keep YouTube titles/stats (bronze already purged at 30 days)
 - [ ] **P7.2** Go live; monitor errors/uptime/quota every few hours for 48h
 - [ ] **P7.3** Tune scoring weights on release-week data
 

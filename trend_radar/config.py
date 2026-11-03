@@ -22,11 +22,15 @@ TWITCH_CLIENT_SECRET = os.environ.get("TWITCH_CLIENT_SECRET", "")
 TWITCH_GAME_NAME = "Grand Theft Auto VI"
 TWITCH_MAX_STREAM_PAGES = 10  # x100 streams, sorted by viewers
 
+# Identifies us to APIs and feeds that ask for a descriptive client name.
+USER_AGENT = "TrendRadar/0.1 (https://github.com/AganzeFelicite/trend-radar)"
+
+# --- Bronze retention (YouTube allows stored API data for 30 days) ---
+RAW_RETENTION_DAYS = 30
+
 # --- Wikipedia (no key; daily granularity) ---
 # `or`, not a get() default: compose passes unset vars through as "".
-WIKIMEDIA_USER_AGENT = (
-    os.environ.get("WIKIMEDIA_USER_AGENT") or "TrendRadar/0.1 (https://github.com/AganzeFelicite/trend-radar)"
-)
+WIKIMEDIA_USER_AGENT = os.environ.get("WIKIMEDIA_USER_AGENT") or USER_AGENT
 WIKIPEDIA_ARTICLES = [
     "Grand_Theft_Auto_VI",
     "Grand_Theft_Auto_V",
@@ -36,3 +40,18 @@ WIKIPEDIA_ARTICLES = [
     "Grand_Theft_Auto:_Vice_City",
 ]
 WIKIPEDIA_BACKFILL_DAYS = 30
+
+# --- News RSS (no key; headlines + links only, never article text) ---
+# name -> (outlet, feed URL). All RSS 2.0, verified Nov 4, 2026.
+RSS_FEEDS = {
+    "gamespot": ("GameSpot", "https://www.gamespot.com/feeds/news/"),
+    "eurogamer": ("Eurogamer", "https://www.eurogamer.net/feed"),
+    "ign": ("IGN", "https://feeds.feedburner.com/ign/all"),
+    "kotaku": ("Kotaku", "https://kotaku.com/rss"),
+    "gamesradar": ("GamesRadar+", "https://www.gamesradar.com/feeds/all/"),
+    "pcgamer": ("PC Gamer", "https://www.pcgamer.com/rss/"),
+    "polygon": ("Polygon", "https://www.polygon.com/rss/index.xml"),
+    "vgc": ("VGC", "https://www.videogameschronicle.com/feed/"),
+}
+# A headline is kept if its title contains one of these (whole word, any case).
+RSS_KEYWORDS = ["GTA", "Grand Theft Auto", "Rockstar", "Vice City", "Leonida", "Take-Two"]

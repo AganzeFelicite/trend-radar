@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 
-from trend_radar import config
-from trend_radar.connectors import twitch, wikipedia, youtube
+from trend_radar import config, maintenance
+from trend_radar.connectors import rss, twitch, wikipedia, youtube
 
 log = logging.getLogger("scheduler")
 
@@ -18,7 +18,10 @@ def main() -> None:
     )
     now = datetime.now(timezone.utc)
 
+    # No keys needed: always on.
     sched.add_job(wikipedia.collect, "interval", hours=6, next_run_time=now)
+    sched.add_job(rss.collect, "cron", minute=20, next_run_time=now)
+    sched.add_job(maintenance.purge_raw, "cron", hour=3, minute=30)
 
     if config.YOUTUBE_API_KEY:
         sched.add_job(youtube.discover, "interval", hours=config.YOUTUBE_SEARCH_EVERY_HOURS, next_run_time=now)
