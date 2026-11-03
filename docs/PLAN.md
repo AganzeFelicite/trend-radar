@@ -98,6 +98,8 @@ Done when: three sources land in `signals`, a backup restores, and a push to `ma
 - [ ] **P2.9** More sources before Phase 3 (owner decision Nov 4: all sources in first, then dbt). Guide: [adding-sources.html](adding-sources.html)
   - [x] News RSS (Nov 4): 8 feeds, GTA keyword filter, `items` only; broken feeds isolated (`partial`). 3 tests; real run: 8/8 feeds ok, 24 GTA headlines from 7 outlets
   - [ ] Bluesky: needs a free app password (public search returns 403)
+    - [x] Connector + 3 tests against a mocked API (Nov 4): one login per run, latest + top over 24h, 4 metrics per post
+    - [ ] Real run: waiting on `BLUESKY_HANDLE` + `BLUESKY_APP_PASSWORD`; tune queries (`GTA 6` vs `GTA6`/`GTA VI`) on real results
   - [ ] Reddit: when API access is approved (can be built against mocks first)
   - [ ] Google Trends API: when alpha access is granted
   - Verified:
@@ -165,6 +167,7 @@ Done when: the site is public and stable through release day.
 
 - [ ] **P7.1** Pre-launch check: every source, alert, digest, backup
   - [ ] YouTube API policy: confirm how long silver may keep YouTube titles/stats (bronze already purged at 30 days)
+  - [ ] Bluesky: honour post deletions (posts are public, but deleted ones should not stay in silver indefinitely)
 - [ ] **P7.2** Go live; monitor errors/uptime/quota every few hours for 48h
 - [ ] **P7.3** Tune scoring weights on release-week data
 

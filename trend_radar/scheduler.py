@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 from trend_radar import config, maintenance
-from trend_radar.connectors import rss, twitch, wikipedia, youtube
+from trend_radar.connectors import bluesky, rss, twitch, wikipedia, youtube
 
 log = logging.getLogger("scheduler")
 
@@ -34,6 +34,11 @@ def main() -> None:
         sched.add_job(twitch.collect, "cron", minute=10, next_run_time=now)
     else:
         log.warning("TWITCH_CLIENT_ID/SECRET not set: Twitch jobs disabled")
+
+    if config.BLUESKY_HANDLE and config.BLUESKY_APP_PASSWORD:
+        sched.add_job(bluesky.collect, "cron", minute=25, next_run_time=now)
+    else:
+        log.warning("BLUESKY_HANDLE/APP_PASSWORD not set: Bluesky jobs disabled")
 
     sched.start()
 

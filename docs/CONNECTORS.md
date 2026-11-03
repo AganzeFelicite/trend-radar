@@ -13,6 +13,7 @@ Each connector lives in `trend_radar/connectors/<source>.py`, fetches from **one
 | Twitch | `twitch.collect` | hourly at :10 (+ on start) | `viewers` per `stream`, `views` per `clip` (top 100 clips of last 24h) | ~13 points of 800/min | `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET` |
 
 Twitch had no "Grand Theft Auto VI" category on Nov 3, 2026. Until it exists, `twitch.collect` records status `waiting` (not `error`) and checks again every hour.
+| Bluesky | `bluesky.collect` | hourly at :25 (+ on start) | `likes`, `reposts`, `replies`, `quotes` per `post` (last 24h, "latest" + "top") | 1 login + ≤10 searches; login limit 300/day | `BLUESKY_HANDLE`, `BLUESKY_APP_PASSWORD` |
 | News RSS | `rss.collect` | hourly at :20 (+ on start) | `article` items only (no metrics): GTA headlines from 8 outlets; mentions/hour derived in dbt | 8 requests | nothing |
 | Wikipedia | `wikipedia.collect` | every 6h (+ on start) | daily `pageviews` per `article`, re-fetches last 30 days | 1 call per article | nothing (descriptive User-Agent) |
 

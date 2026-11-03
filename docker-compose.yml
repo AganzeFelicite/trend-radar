@@ -24,6 +24,8 @@ services:
       TWITCH_CLIENT_ID: ${TWITCH_CLIENT_ID:-}
       TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET:-}
       WIKIMEDIA_USER_AGENT: ${WIKIMEDIA_USER_AGENT:-}
+      BLUESKY_HANDLE: ${BLUESKY_HANDLE:-}
+      BLUESKY_APP_PASSWORD: ${BLUESKY_APP_PASSWORD:-}
     depends_on:
       postgres:
         condition: service_healthy

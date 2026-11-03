@@ -55,3 +55,11 @@ RSS_FEEDS = {
 }
 # A headline is kept if its title contains one of these (whole word, any case).
 RSS_KEYWORDS = ["GTA", "Grand Theft Auto", "Rockstar", "Vice City", "Leonida", "Take-Two"]
+
+# --- Bluesky (free account + app password; public search needs a login since 2025) ---
+BLUESKY_HANDLE = os.environ.get("BLUESKY_HANDLE", "")
+BLUESKY_APP_PASSWORD = os.environ.get("BLUESKY_APP_PASSWORD", "")
+BLUESKY_API = "https://bsky.social/xrpc/"  # entryway for accounts hosted on bsky.social
+# (query, sort): "latest" = volume, "top" = what's taking off. Each runs over the last 24h.
+BLUESKY_SEARCHES = [("GTA 6", "latest"), ("GTA 6", "top")]
+BLUESKY_MAX_PAGES = 5  # x100 posts per search
