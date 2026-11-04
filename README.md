@@ -40,6 +40,7 @@ scripts/radar.sh up --awake  # same, and keep the Mac from sleeping until `down`
 scripts/radar.sh status    # containers, awake or not, last pipeline runs, current top 5
 scripts/radar.sh backup ~/Backups/trend-radar   # pg_dump to a folder outside Docker, keeps the newest 7
 scripts/radar.sh restore-test   # restore the newest backup into a throwaway DB (needs RADAR_BACKUP_DIR) or pass a file
+scripts/radar.sh brief     # build today's Daily Brief now and open it at http://localhost:3100/admin
 scripts/radar.sh offtopic blue-texas on   # keep a meme/non-game topic out of the top 5 (off: undo; no args: list)
 scripts/radar.sh refresh   # run the hourly cycle now (embeddings, AI naming, dbt scores)
 scripts/radar.sh topics    # review the AI's topic decisions

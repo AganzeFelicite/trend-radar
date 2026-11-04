@@ -112,6 +112,18 @@ def rising_videos(limit: int = Query(10, ge=1, le=10)):
         order by per_1k_subs desc limit :limit""", limit=limit)}
 
 
+# --- admin (read-only for now). ponytail: no auth in the app: Caddy basic_auth guards /admin and /api/admin/* on the
+# server (P1.3); locally everything is bound to 127.0.0.1. Approve/send actions (P9.3) need it before they exist.
+
+@app.get("/api/admin/brief")
+def latest_brief():
+    found = rows("""select brief_date, version, status, created_at, json from daily_briefs
+                    order by brief_date desc, version desc limit 1""")
+    if not found:
+        raise HTTPException(404, "no brief yet: run scripts/radar.sh brief")
+    return found[0]
+
+
 # --- waitlist ---
 
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")

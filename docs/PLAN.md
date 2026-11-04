@@ -59,6 +59,7 @@ Done when: YouTube snapshots land hourly in Postgres on the server.
 - [~] **P1.3** HTTPS via Caddy. **Blocked: P1.1.**
   - [ ] `https://<domain>` loads
   - [ ] `/api/health` OK
+  - [ ] `/admin` and `/api/admin/*` behind Caddy `basic_auth` (the app has no login of its own yet)
   - Verified:
 - [x] **P1.4** Alembic: `raw_responses`, `items`, `signals`, `connector_runs`
   - [x] Up and down clean
@@ -240,14 +241,16 @@ Video Studio. Everything is approved by the owner, and every fact traces to the 
 - **Costs capped.** AI writing has a monthly cap in config; jobs stop and alert the owner when it is reached. Video rendering costs live in the Video Studio, not here.
 
 - [ ] **P9.1** Daily Brief builder (no AI): daily job after the morning dbt build → one JSON per day in `daily_briefs` (date, version, json, status draft/approved/published). Contents: top 5 (name, score, rank change, sources, item counts), biggest riser, "make this now" pick (high talk/watch momentum, few videos; empty until growth data exists), 3 breakout videos (title, channel, link: email/site only, never in packages), off-topic buzz (optional), data window and freshness notes
-  - [ ] JSON schema defined and validated with pydantic
-  - [ ] Brief for today generated from real data and reviewed by the owner
-  - Verified:
+  - [x] JSON schema defined and validated with pydantic (`trend_radar/brief.py`; stored JSON round-trips through it)
+  - [x] Brief for today generated from real data (Nov 4 v2, 08:40 UTC)
+  - [ ] Reviewed by the owner (at `/admin`)
+  - Built Nov 4 (ahead of priority order while B1 waits for the VPS): `daily_briefs` (migration e1a4c6d8f0b2), job at 06:50 UTC, `scripts/radar.sh brief`, `GET /api/admin/brief`, read-only `/admin` preview. Riser and "make this now" follow the 2-source trust rule; "make this now" is empty until growth is measurable.
+  - Verified: `tests/test_brief.py` (top 5 = in_top5 only, off-topic apart, one-source riser excluded, versions per day, API returns the latest); real data v2: top 5 Pre-load 68 · Xbox 42 · File size 36 · Map 28 · Release date 27, riser Jason #20 → #17 (2 sources), notes for Twitch and growth; screenshots 1280 light, 390 dark.
 - [ ] **P9.2** Writer (Claude API) with grounding guard: from the brief, (a) email copy, (b) 2–3 video scripts in different formats, (c) Telegram post, (d) website "Today" text. Every number is a placeholder (`{{topic1.score}}`) filled by code; a validator rejects any output naming a topic, number or name not in the brief, then retries or flags it
   - [ ] Validator test: an output with an invented number is rejected
   - [ ] Monthly cost cap enforced
   - Verified:
-- [ ] **P9.3** Admin approval page: today's brief and all drafts side by side; edit text, add the one-line human commentary per video, approve or reject each item
+- [ ] **P9.3** Admin approval page: today's brief and all drafts side by side; edit text, add the one-line human commentary per video, approve or reject each item *(Nov 4: read-only `/admin` shows the brief and empty draft slots; no actions yet)*
   - [ ] Nothing can be sent or exported unless status = approved (enforced server-side)
   - Verified:
 - [ ] **P9.4** Subscriber email (Resend): double opt-in for waitlist/subscribers, signed unsubscribe links, physical address in the footer (config); daily digest rendered with React Email from the approved brief; opens/clicks tracked (= P5.1)

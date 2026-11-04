@@ -9,6 +9,7 @@
 #   offtopic [slug on|off]  flag a meme/non-game topic out of the top 5 (no args: list flags)
 #   cycle               collect from every source now, then score; prints each step, then status
 #   refresh             run the hourly cycle now: embed titles, AI topic naming (Claude, ~1-2 cents if new clusters), dbt scores
+#   brief               build today's Daily Brief now (verified data, no AI) and open it at /admin
 #   topics              what the AI decided for each cluster (review names, merges, noise, spam)
 #   keys                which .env keys are set (shows length only, never the value)
 #   test                Python tests + website typecheck, lint and build
@@ -69,6 +70,16 @@ for job in (youtube.snapshot, twitch.collect, rss.collect, bluesky.collect, tran
     psql -c "select source, job, status, items_count, quota_used as tokens, left(coalesce(error, ''), 80) as error
              from connector_runs where source in ('ai', 'dbt') order by id desc limit 3"
     ;;
+  brief)
+    docker compose exec -T worker python -c "from trend_radar import brief; brief.build()"
+    curl -sf localhost:8000/api/admin/brief | python3 -c '
+import json, sys
+r = json.load(sys.stdin); b = r["json"]
+print("Daily Brief {} v{} ({})".format(r["brief_date"], r["version"], r["status"]))
+for t in b["top5"]: print("  {:>2}  {:>3.0f}  {}".format(t["rank"], t["score"], t["name"]))
+for n in b["notes"]: print("  ! " + n)'
+    open -a Arc "$SITE/admin"
+    ;;
   topics)
     psql -c "select slug, name, status, merged_into, items_count as items, left(examples->>0, 60) as example
              from ai_topics order by status, items_count desc"
@@ -123,5 +134,5 @@ for job in (youtube.snapshot, twitch.collect, rss.collect, bluesky.collect, tran
   logs) docker compose logs -f --tail 50 "${2:-worker}" ;;
   open) open -a Arc "$SITE" ;;
   down) docker compose down; pkill -f "$AWAKE" || true ;;
-  *) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//' ;;
 esac

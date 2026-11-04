@@ -1,8 +1,9 @@
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     BigInteger,
+    Date,
     DateTime,
     ForeignKeyConstraint,
     Index,
@@ -132,6 +133,18 @@ class OffTopicFlag(Base):
     __tablename__ = "off_topic_flags"
     topic_slug: Mapped[str] = mapped_column(String(64), primary_key=True)
     flagged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class DailyBrief(Base):
+    """One verified data snapshot per day (trend_radar/brief.py). Re-running the same day adds a version; drafts,
+    emails and content packages are written only from an approved one (P9.3). status: draft · approved · published."""
+
+    __tablename__ = "daily_briefs"
+    brief_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    version: Mapped[int] = mapped_column(primary_key=True)
+    json: Mapped[dict] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(String(16), default="draft")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 @contextmanager

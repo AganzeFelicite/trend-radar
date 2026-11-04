@@ -68,3 +68,17 @@ export const getTopTopics = () =>
   get<{ updated_at: string | null; stats: Stats; topics: Topic[]; off_topic: Topic[] }>("/api/topics/top?limit=10");
 export const getTopic = (slug: string) => get<TopicPage>(`/api/topics/${encodeURIComponent(slug)}`);
 export const getRisingVideos = () => get<{ updated_at: string | null; videos: Video[] }>("/api/videos/rising");
+
+// Daily Brief (trend_radar/brief.py): the verified snapshot every draft and package is written from.
+export type TopicFact = {
+  slug: string; name: string; rank: number | null; rank_6h_ago: number | null; score: number; share: number;
+  growth: number | null; sources: number; items: number; channels: number;
+};
+export type Brief = {
+  date: string; generated_at: string; scores_at: string; window_hours: number;
+  top5: TopicFact[]; biggest_riser: TopicFact | null; make_this_now: TopicFact | null;
+  breakout_videos: { title: string; channel: string | null; url: string; views_24h: number; times_subscribers: number }[];
+  off_topic: TopicFact[]; freshness: { source: string; last_success: string | null; stale: boolean }[]; notes: string[];
+};
+export const getAdminBrief = () =>
+  get<{ brief_date: string; version: number; status: string; created_at: string; json: Brief }>("/api/admin/brief");
