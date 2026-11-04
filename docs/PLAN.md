@@ -128,15 +128,15 @@ Done when: hourly top topics look sensible to a human, with no obvious duplicate
 ## Phase 4: The product (Nov 9–11)
 Done when: a stranger on a phone understands the site, sees today's top topics, and joins the waitlist in under a minute.
 
-- [ ] **P4.1** API: `GET /topics/top`, `GET /topics/{slug}`, `GET /videos/rising`, `POST /waitlist` (rate-limited, validated)
-  - [ ] Endpoint tests pass
-  - Verified:
-- [ ] **P4.2** Home: top 5, "updated X minutes ago", waitlist CTA
-  - Verified:
-- [ ] **P4.3** Topic page: 7-day momentum chart, videos, related keywords
-  - Verified:
-- [ ] **P4.4** Rising videos (top 10)
-  - Verified:
+- [x] **P4.1** API: `GET /topics/top`, `GET /topics/{slug}`, `GET /videos/rising`, `POST /waitlist` (rate-limited, validated)
+  - [x] Endpoint tests pass
+  - Verified: Nov 4, `trend_radar/api.py` + `waitlist` table (migration c4d8e1f2a3b5). `tests/test_api.py`: ranking, 7-day series with empty hours = 0, growth null until the previous window is covered, topic page (videos, news, keywords, 404), rising videos (small channel first, unknown subscriber count left out), waitlist (422 invalid, lowercase + dedupe, 429 on the 6th signup/hour); 28 passed. Real data via compose `api` on 127.0.0.1:8000.
+- [x] **P4.2** Home: top 5, "updated X minutes ago", waitlist CTA
+  - Verified: Nov 4, `apps/web` (Next.js 16, Cache Components). `next build` passes with the API down (data is request-time, 1-min cache). Compose `web` on 127.0.0.1:3100, non-root, 294 MB. Screenshot at 390 px: no horizontal scroll. Waitlist form → API through the `/api` rewrite (422 shown inline). Stranger test still to do (P6.4).
+- [x] **P4.3** Topic page: 7-day momentum chart, videos, related keywords
+  - Verified: Nov 4, `/topics/[slug]`: score, rank, share, growth ("from Nov 5" until measurable), posts, channels, SVG score chart, keyword chips (alias counts, 7 days), top videos (24h), news headlines. Unknown slug shows the not-found page (soft 404: status 200 because the page streams).
+- [x] **P4.4** Rising videos (top 10)
+  - Verified: Nov 4, `/videos`: ranked by 24h views per 1,000 subscribers ("N× the channel's subscribers"), 1,000+ views, channels with a known subscriber count only; top 3 also on home.
 - [ ] **P4.5** About (unofficial, not affiliated, "Data from YouTube") + Privacy policy + Pro teaser
   - Verified:
 - [ ] **P4.6** SEO, original design, mobile-first, Sentry in web

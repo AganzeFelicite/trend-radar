@@ -167,7 +167,7 @@
 <b>load</b> the raw payloads into a <b>bronze</b> zone and conformed records into <b>silver</b>, all in one Postgres warehouse.
 <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse build the <b>gold</b> marts (topics, momentum scores) for the
 <b>serving layer</b> (API, website) and <b>activation</b> (email, Telegram).
-<b>Built: sources → ingestion → bronze → silver → gold, plus orchestration. Not built: serving, activation, the production platform.</b></p>
+<b>Built: sources → ingestion → bronze → silver → gold, orchestration, and the serving layer (API + website, local). Not built: activation, the production platform.</b></p>
 <div class="tags">
   <span>Batch, hourly micro-batches</span><span>EL at ingest + in-warehouse T (ELT)</span><span>Medallion: bronze / silver / gold</span>
   <span>Idempotent upserts</span><span>Single-node Postgres 17</span><span>Cron-style orchestration</span><span>Runs locally (Docker)</span>
@@ -230,9 +230,10 @@
     <div class="hop"><b>SERVE</b> read-only queries against gold</div>
 
     <div class="stage z-serve">
-      <div class="sh"><span class="num">⑥</span><div><div class="term">Serving layer: the data product</div><div class="tool">FastAPI (same image as the worker) · Next.js with ISR <code>revalidate</code> · Caddy HTTPS</div></div><span class="chip plan">Phase 4</span></div>
+      <div class="sh"><span class="num">⑥</span><div><div class="term">Serving layer: the data product</div><div class="tool">FastAPI (same image as the worker) · Next.js 16 (Cache Components) · Caddy HTTPS</div></div><span class="chip part">Built locally</span></div>
       <ul><li><code>/api/topics/top</code>, <code>/api/topics/{slug}</code>, <code>/api/videos/rising</code>, <code>/api/health</code>, <code>POST /api/waitlist</code>.</li>
-          <li>Pages are cached and refreshed hourly (data changes hourly), so there's no Redis.</li></ul>
+          <li>Pages render at request time from a 1-minute in-memory cache (<code>'use cache'</code> + <code>cacheLife</code>): data changes hourly, the site builds without the API, no Redis.</li>
+          <li>Waitlist: validated, lowercased, deduplicated, 5 signups per IP per hour; same answer whether or not the address is already on the list.</li></ul>
     </div>
     <div class="hop"><b>ACTIVATE</b> push insights out to where users are</div>
 
@@ -284,8 +285,8 @@
     <tr><td class="nw"><b>Pipeline observability</b></td><td>Run status, volume, cost, errors</td><td><code>connector_runs</code> + logs; later Sentry, Healthchecks.io, Telegram ops alerts</td><td><span class="chip part">Partial</span></td><td>Many pipelines → metrics stack (Prometheus/Grafana)</td></tr>
     <tr><td class="nw"><b>Data quality tests</b></td><td>Assert invariants on data</td><td>DB constraints + dbt tests (not_null, accepted_values, singular SQL tests) + source freshness</td><td><span class="chip live">Live</span></td><td>Great Expectations only if dbt tests fall short</td></tr>
     <tr><td class="nw"><b>Topic modelling</b></td><td>Group items into entities</td><td>Keyword aliases (seed, 27 topics) + 2–3-word phrase discovery, SQL in dbt</td><td><span class="chip live">Live (P3.2)</span></td><td>Top-20 review fails → MiniLM embeddings in pgvector + HDBSCAN</td></tr>
-    <tr><td class="nw"><b>Serving API</b></td><td>Expose gold to apps</td><td>FastAPI</td><td><span class="chip plan">Phase 4</span></td><td>n/a</td></tr>
-    <tr><td class="nw"><b>Cache</b></td><td>Absorb read traffic</td><td>Next.js ISR <code>revalidate</code> (hourly)</td><td><span class="chip plan">Phase 4</span></td><td>API p95 too slow under load → Redis</td></tr>
+    <tr><td class="nw"><b>Serving API</b></td><td>Expose gold to apps</td><td>FastAPI</td><td><span class="chip part">Built locally</span></td><td>n/a</td></tr>
+    <tr><td class="nw"><b>Cache</b></td><td>Absorb read traffic</td><td>Next.js <code>'use cache'</code>, 1-minute life</td><td><span class="chip part">Built locally</span></td><td>API p95 too slow under load → Redis</td></tr>
     <tr><td class="nw"><b>Activation</b></td><td>Push insights to users</td><td>Resend email, Telegram bot</td><td><span class="chip plan">Phase 5</span></td><td>n/a</td></tr>
     <tr><td class="nw"><b>Runtime</b></td><td>Package and run services</td><td>Docker Compose, <code>python:3.12-slim</code> + uv, non-root</td><td><span class="chip live">Live</span></td><td>Many nodes → Kubernetes (not planned)</td></tr>
     <tr><td class="nw"><b>CI/CD · IaC</b></td><td>Test, build, deploy reproducibly</td><td>GitHub Actions, GHCR, Ansible; Terraform later</td><td><span class="chip block">Blocked</span></td><td>n/a</td></tr>
@@ -435,7 +436,7 @@
     <tr><td><i class="zone bronze"></i><b>Bronze</b></td><td><span class="chip live">Live</span></td><td>Done: 30-day purge runs daily</td><td class="nw">P1.4 + cleanup</td></tr>
     <tr><td><i class="zone silver"></i><b>Silver</b></td><td><span class="chip live">Live</span></td><td>Done: dbt silver models, tests, freshness (Nov 4)</td><td class="nw">P3.1</td></tr>
     <tr><td><i class="zone gold"></i><b>Gold</b></td><td><span class="chip part">Partial</span></td><td>Done: topics (P3.2), scores + spam filter (P3.3). Left: your top-20 review</td><td class="nw">P3.2 · P3.3</td></tr>
-    <tr><td><b>Serving</b></td><td><span class="chip plan">Not started</span></td><td>API, website, SEO, mobile</td><td class="nw">P4.1–P4.6</td></tr>
+    <tr><td><b>Serving</b></td><td><span class="chip part">In progress</span></td><td>API + home, topic, rising videos built; about/privacy, SEO, Sentry to do</td><td class="nw">P4.1–P4.6</td></tr>
     <tr><td><b>Activation</b></td><td><span class="chip plan">Not started</span></td><td>Email digest, Telegram alerts, daily card</td><td class="nw">P5.1–P5.3</td></tr>
     <tr><td><b>Orchestration</b></td><td><span class="chip live">Live</span></td><td>Done: <code>transform.build</code> hourly at :40</td><td class="nw">P3.1</td></tr>
     <tr><td><b>Observability</b></td><td><span class="chip part">Partial</span></td><td>Sentry, heartbeat, ops alerts, admin page</td><td class="nw">P2.6 · P6.1 · P6.2</td></tr>

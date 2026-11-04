@@ -117,6 +117,14 @@ class AiTopic(Base):
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class Waitlist(Base):
+    """Emails from the site's waitlist form (daily digest, P5.1). Stored lowercased; one row per address."""
+
+    __tablename__ = "waitlist"
+    email: Mapped[str] = mapped_column(String(254), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 @contextmanager
 def connector_run(source: str, job: str):
     """Yields (session, run). Records ok/error and finish time no matter how the job ends."""

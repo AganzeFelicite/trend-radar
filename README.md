@@ -32,6 +32,13 @@ Transform layer (dbt; also runs hourly in the worker):
 cd dbt && uv run dbt build --profiles-dir . && uv run dbt source freshness --profiles-dir .
 ```
 
+Website + API (Phase 4):
+
+```sh
+docker compose up -d --build api web   # site on http://localhost:3100, API on http://localhost:8000/api/docs
+cd apps/web && npm install && npm run dev   # or: hot-reload dev server (needs the API on :8000)
+```
+
 Check what's been collected:
 
 ```sh
