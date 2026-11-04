@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Skeleton, card, fmt, label } from "@/components/ui";
-import { getAdminBrief, type TopicFact } from "@/lib/api";
+import { getAdminBrief, type Draft, type TopicFact, type Writing } from "@/lib/api";
 
 export const metadata: Metadata = { title: "Admin", robots: { index: false, follow: false } };
 
@@ -105,7 +105,65 @@ async function BriefView() {
   );
 }
 
-const DRAFTS = ["Email digest", "Telegram post", "Website “Today” text", "Video script · Daily Radar", "Video script · Myth or Real?"];
+const KIND: Record<string, string> = {
+  email: "Email digest", telegram: "Telegram post", today: "Website “Today” text",
+  script_daily_radar: "Video script · Daily Radar", script_make_this_now: "Video script · Make This Now",
+  script_weekly_recap: "Video script · Weekly Recap",
+};
+const ORDER = Object.keys(KIND);
+
+function DraftCard({ d }: { d: Draft }) {
+  return (
+    <details open className={`${card} group p-4`}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+        <span className="font-semibold">{KIND[d.kind] ?? d.kind}</span>
+        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${d.status === "flagged"
+          ? "bg-rose-100 text-rose-900 dark:bg-rose-400/15 dark:text-rose-300" : "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"}`}>
+          {d.status === "flagged" ? "flagged: check facts" : "draft"}
+        </span>
+      </summary>
+      {d.problems && <p className="mt-3 text-sm text-rose-700 dark:text-rose-400">⚠ {d.problems}</p>}
+      <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed">{d.text}</p>
+    </details>
+  );
+}
+
+function Spend({ w }: { w: Writing }) {
+  const pct = Math.min(100, (w.month_usd / w.cap_usd) * 100);
+  return (
+    <div className="space-y-1 text-sm text-neutral-500">
+      <div className="flex justify-between">
+        <span>AI writing this month: <b className="font-mono text-neutral-800 dark:text-neutral-200">${w.month_usd.toFixed(3)}</b> of ${w.cap_usd.toFixed(2)}</span>
+        {w.status && <span>last run: {w.status}{w.started_at ? ` · ${utc(w.started_at)}` : ""}</span>}
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+        <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+      </div>
+      {w.error && <p className="text-amber-700 dark:text-amber-400">⚠ {w.error}</p>}
+    </div>
+  );
+}
+
+async function DraftsView() {
+  const row = await getAdminBrief();
+  if (!row) return null;
+  const drafts = [...row.drafts].sort((a, b) => ORDER.indexOf(a.kind) - ORDER.indexOf(b.kind));
+  return (
+    <section className="space-y-3">
+      <h2 className={label}>Drafts · from brief version {row.version}</h2>
+      <Spend w={row.writing} />
+      {drafts.length ? drafts.map((d) => <DraftCard key={d.kind} d={d} />) : (
+        <p className={`${card} p-4 text-sm text-neutral-500`}>
+          No drafts for this brief yet. They&apos;re written every morning after the brief, or now with <code>scripts/radar.sh drafts</code>.
+        </p>
+      )}
+      <p className="text-sm text-neutral-500">
+        Every number and name was filled in from the brief by code; anything not in the brief is flagged. Approve, edit
+        and send come with P9.3: nothing can be sent from this page today.
+      </p>
+    </section>
+  );
+}
 
 export default function AdminPage() {
   return (
@@ -121,21 +179,9 @@ export default function AdminPage() {
       <Suspense fallback={<Skeleton rows={4} className="h-32" />}>
         <BriefView />
       </Suspense>
-      <section className="space-y-3">
-        <h2 className={label}>Drafts</h2>
-        <ul className={`${card} divide-y divide-neutral-200 dark:divide-neutral-800`}>
-          {DRAFTS.map((d) => (
-            <li key={d} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-              <span className="font-medium">{d}</span>
-              <span className="text-xs text-neutral-500">not written yet</span>
-            </li>
-          ))}
-        </ul>
-        <p className="text-sm text-neutral-500">
-          Drafts appear here once AI writing (P9.2) is switched on, which needs your monthly cost cap. Approve, edit and
-          send buttons come with P9.3; nothing can be sent from this page today.
-        </p>
-      </section>
+      <Suspense fallback={<Skeleton rows={3} className="h-24" />}>
+        <DraftsView />
+      </Suspense>
     </div>
   );
 }

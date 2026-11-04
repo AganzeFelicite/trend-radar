@@ -147,6 +147,26 @@ class DailyBrief(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class Draft(Base):
+    """AI-written copy for one brief (trend_radar/writer.py). template = the model's text with {{placeholders}};
+    text = the same with every fact filled in from the brief by code. status: draft · flagged (failed the grounding
+    check twice; problems says why). approved / rejected come with the approval page (P9.3)."""
+
+    __tablename__ = "drafts"
+    brief_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    brief_version: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(32), primary_key=True)
+    template: Mapped[str] = mapped_column(Text)
+    text: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(16))
+    problems: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    __table_args__ = (
+        ForeignKeyConstraint(["brief_date", "brief_version"], ["daily_briefs.brief_date", "daily_briefs.version"],
+                             ondelete="CASCADE"),
+    )
+
+
 @contextmanager
 def connector_run(source: str, job: str):
     """Yields (session, run). Records ok/error and finish time no matter how the job ends."""

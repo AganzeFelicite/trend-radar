@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 
-from trend_radar import ai, brief, config, maintenance, transform
+from trend_radar import ai, brief, config, maintenance, transform, writer
 from trend_radar.connectors import bluesky, rss, twitch, wikipedia, youtube
 
 log = logging.getLogger("scheduler")
@@ -24,6 +24,12 @@ def transform_cycle() -> None:
     transform.build()
 
 
+def morning() -> None:
+    """Daily Brief from the 06:40 scores, then the AI drafts. A writing failure or the cost cap never undoes the brief."""
+    brief.build()
+    writer.write()
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
@@ -38,7 +44,7 @@ def main() -> None:
     sched.add_job(maintenance.purge_raw, "cron", hour=3, minute=30)
     # Transform after every hourly ingestion job (:05 snapshot … :25 Bluesky). Also 3 min after start.
     sched.add_job(transform_cycle, "cron", minute=40, next_run_time=now + timedelta(minutes=3))
-    sched.add_job(brief.build, "cron", hour=6, minute=50)  # Daily Brief from the 06:40 scores (P9.1)
+    sched.add_job(morning, "cron", hour=6, minute=50)  # Daily Brief + drafts (P9.1, P9.2)
 
     if config.YOUTUBE_API_KEY:
         sched.add_job(youtube.discover, "interval", hours=config.YOUTUBE_SEARCH_EVERY_HOURS, next_run_time=now)

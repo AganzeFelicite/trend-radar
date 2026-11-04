@@ -11,6 +11,7 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import insert
 
+from trend_radar import config
 from trend_radar.db import Waitlist, engine
 
 app = FastAPI(title="Trend Radar API", docs_url="/api/docs", openapi_url="/api/openapi.json")
@@ -121,7 +122,15 @@ def latest_brief():
                     order by brief_date desc, version desc limit 1""")
     if not found:
         raise HTTPException(404, "no brief yet: run scripts/radar.sh brief")
-    return found[0]
+    b = found[0]
+    drafts = rows("""select kind, text, status, problems, created_at from drafts
+                     where brief_date = :d and brief_version = :v order by kind""", d=b["brief_date"], v=b["version"])
+    writing = rows("""select (select coalesce(sum(quota_used), 0) / 1e6 from connector_runs
+                              where source = 'writer' and started_at >= date_trunc('month', now()))::float as month_usd,
+                             r.status, r.error, r.started_at
+                      from (select 1) one left join lateral (select * from connector_runs where source = 'writer'
+                                                             order by id desc limit 1) r on true""")[0]
+    return b | {"drafts": drafts, "writing": writing | {"cap_usd": config.AI_WRITING_MONTHLY_CAP_USD}}
 
 
 # --- waitlist ---

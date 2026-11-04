@@ -34,6 +34,8 @@ def marts():
                 ('rss', 'n1', 'Pre-load starts Nov 10', 'https://n/1', 'IGN', 1, 1.0, null, null, '{preload}', now()),
                 ('bluesky', 'p1', 'Pre-loading now', 'https://b/1', 'fan.bsky.social', 40, 2.0, null, null, '{preload}', now()))
               v(source, item_id, title, url, channel_title, activity_24h, per_hour, subscribers, per_1k_subs, topics, seen_at);
+            create table analytics.topic_aliases as
+              select * from (values ('preload', 'pre load'), ('quiet', 'quiet zone')) v(topic_slug, alias);
             create table analytics.topic_items as
               select * from (values ('preload', 'alias', 'pre load', now()), ('preload', 'alias', 'pre load', now()),
                                     ('preload', 'alias', 'november 10', now()), ('preload', 'semantic', null, now()))

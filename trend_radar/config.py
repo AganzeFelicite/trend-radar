@@ -73,3 +73,10 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 AI_MODEL = "claude-haiku-5-5"
 AI_MAX_CLUSTERS_PER_RUN = 25  # cost cap: one LLM call per hour with at most this many clusters
 
+
+# --- AI writing (P9.2): daily drafts from the Daily Brief ---
+AI_WRITING_MONTHLY_CAP_USD = 4.00  # owner, Nov 4. Checked before every call; writing stops (status 'capped') at the cap
+# Claude Haiku 5.5 list price per million tokens, prompts up to 100K tokens (claude-api skill, models.md). Thinking
+# tokens are billed as output. Update both if AI_MODEL changes.
+AI_PRICE_PER_MTOK_IN = 0.10
+AI_PRICE_PER_MTOK_OUT = 0.50
