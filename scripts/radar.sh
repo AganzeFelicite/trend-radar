@@ -12,6 +12,7 @@
 #   brief               build today's Daily Brief now (verified data, no AI) and open it at /admin
 #   drafts              AI-write today's drafts from the latest brief now (Claude, a few cents; $4/month cap)
 #   studio [file]       the Video Studio brief (facts, what to research, scenes, rules) for your video AI
+#   published ["title" [platform] [url]]  log a video you posted (packages avoid the last 7 titles); no args: list
 #   topics              what the AI decided for each cluster (review names, merges, noise, spam)
 #   keys                which .env keys are set (shows length only, never the value)
 #   test                Python tests + website typecheck, lint and build
@@ -95,6 +96,14 @@ for n in b["notes"]: print("  ! " + n)'
       curl -sf localhost:8000/api/admin/studio-prompt
     fi
     ;;
+  published)
+    if [ -z "${2:-}" ]; then
+      psql -c "select published_at::timestamp(0), platform, title, url from published_videos order by published_at desc limit 10"
+    else
+      printf '%s\n' "insert into published_videos (title, platform, url) values (:'t', :'p', nullif(:'u', ''))" |
+        psql -v t="$2" -v p="${3:-youtube}" -v u="${4:-}"
+    fi
+    ;;
   topics)
     psql -c "select slug, name, status, merged_into, items_count as items, left(examples->>0, 60) as example
              from ai_topics order by status, items_count desc"
@@ -149,5 +158,5 @@ for n in b["notes"]: print("  ! " + n)'
   logs) docker compose logs -f --tail 50 "${2:-worker}" ;;
   open) open -a Arc "$SITE" ;;
   down) docker compose down; pkill -f "$AWAKE" || true ;;
-  *) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *) sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//' ;;
 esac

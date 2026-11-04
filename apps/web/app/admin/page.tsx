@@ -174,15 +174,16 @@ async function StudioView() {
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className={label}>Video Studio brief · for your video AI</h2>
+        <h2 className={label}>Video package · for your Video Studio</h2>
         <div className="flex gap-2">
           <CopyButton text={row.studio_prompt} className={button} />
           <a href="/api/admin/studio-prompt?download=1" className={button}>Download .md</a>
+          <a href="/api/admin/content-package" target="_blank" className={button}>JSON</a>
         </div>
       </div>
       <p className="text-sm text-neutral-500">
-        Paste this into your video AI. It holds the verified facts, what to research (the trending videos under each
-        topic, their comments, the posts and headlines), the breakout videos to study, the scene plan and the rules.
+        Paste this into your video AI. Metadata, verified facts, up to 3 segments (overlapping topics merged), what to
+        research and where (comments through official APIs only), the scene plan and the rules.
       </p>
       <pre className={`${card} max-h-[32rem] overflow-auto whitespace-pre-wrap p-4 font-mono text-xs leading-relaxed`}>
         {row.studio_prompt}

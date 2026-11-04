@@ -125,13 +125,27 @@ def _latest_brief() -> dict:
     return found[0]
 
 
-def _studio_prompt(b: dict) -> str:
+def _package(b: dict):
     from trend_radar import studio
     from trend_radar.brief import Brief
 
     script = rows("""select text from drafts where brief_date = :d and brief_version = :v and kind = 'script_daily_radar'""",
                   d=b["brief_date"], v=b["version"])
-    return studio.daily_radar(Brief.model_validate(b["json"]), script[0]["text"] if script else None, b["version"], b["status"])
+    titles = [r["title"] for r in rows("select title from published_videos order by published_at desc limit 7")]
+    return studio.package(Brief.model_validate(b["json"]), script[0]["text"] if script else None, b["version"],
+                          b["status"], titles)
+
+
+def _studio_prompt(b: dict) -> str:
+    from trend_radar import studio
+
+    return studio.markdown(_package(b))
+
+
+@app.get("/api/admin/content-package")
+def content_package():
+    """The package as JSON (machine-readable; the Markdown below is rendered from it)."""
+    return _package(_latest_brief()).model_dump(mode="json")
 
 
 @app.get("/api/admin/studio-prompt", response_class=PlainTextResponse)

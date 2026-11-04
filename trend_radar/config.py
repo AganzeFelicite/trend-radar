@@ -84,3 +84,19 @@ AI_PRICE_PER_MTOK_OUT = 0.50
 # --- Content packages (P9.5, P9.8): topics that must never reach a video package. They may still rank on the site.
 PACKAGE_BLOCKED_TOPICS = {"mark-tilbury-savings"}  # owner + advisor, Nov 4
 PACKAGE_BLOCKED_WORDS = r"saving|invest|money|crypto|stock|financ|loan|health|medic|doctor|diet|legal|lawyer|lawsuit"
+
+# --- Video packages (P9.5; Nov 4 review of the first sample) ---
+HOST_NAME = "Wi-Fido"  # the Video Studio's character who presents; "Trend Radar" is the data brand
+PACKAGE_TARGET_SECONDS = 40
+PACKAGE_MAX_SEGMENTS = 3  # plus hook and close
+TOPIC_OVERLAP_MERGE = 0.5  # two topics sharing more than this share of their trending items become one segment
+# A topic is labelled "riser" only with all of these (else no riser segment).
+RISER_MIN_ITEMS = 15  # posts and videos in 24h
+RISER_MIN_SCORE = 10
+RISER_MIN_GAIN = 3  # places gained in 6 hours
+# Never in a package's research list.
+RESEARCH_EXCLUDE_WORDS = r"pira(?:cy|te|ted)|jailbr[eo]a?k|\bleak|cheat|\bcrack(?:ed)?\b|mod menu"
+# Primary sources for `official` facts. News sites are never the source of an official fact.
+OFFICIAL_DOMAINS = ("rockstargames.com", "playstation.com", "xbox.com", "take2games.com")
+SHORTENER_DOMAINS = ("bit.ly", "t.co", "buff.ly", "ow.ly", "tinyurl.com", "dlvr.it", "trib.al", "ift.tt", "goo.gl",
+                     "shorturl.at", "lnkd.in")

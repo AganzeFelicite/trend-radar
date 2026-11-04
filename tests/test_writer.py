@@ -14,7 +14,7 @@ GOOD = writer.Drafts(
     today="{{t1.name}} holds {{t1.share}} of the GTA 6 conversation in the last 24 hours.",
     scripts=[writer.Script(format="daily_radar", hook="One topic owns GTA 6 today.",
                            what_the_data_shows="{{t1.name}} scores {{t1.score}}.", why_it_matters="Viewers want it.",
-                           what_next="Watch {{pick.name}} tomorrow.")],
+                           what_next="Watch whether {{t1.name}} holds.")],
 )
 
 
@@ -41,6 +41,8 @@ def test_validator_rejects_invented_numbers_unknown_placeholders_and_topics_outs
     allowed = {"t1.name", "t1.score"}
     assert writer.problems("{{t1.name}} hit {{t1.score}} in GTA 6, top 5, 24 hours, out of 100", allowed, ["quiet"]) == []
     assert writer.problems("{{t1.name}} hit 92 today", allowed, []) == ["number typed instead of a placeholder: '92'"]
+    assert writer.problems("Top 5:\n1. {{t1.name}}\n2) {{t1.name}}", allowed, []) == []  # list markers are formatting
+    assert writer.problems("Ranked 1. {{t1.name}}", allowed, []) != []  # but not mid-line
     assert writer.problems("{{t1.score}} and {{t9.score}}", allowed, []) == ["unknown placeholder {{t9.score}}"]
     assert writer.problems("Also watch the Quiet Zone", allowed, ["quiet zone"]) == ["topic not in the brief: 'quiet zone'"]
     assert writer.fill("{{t1.name}}: {{t1.score}}", {"t1.name": "Pre-load", "t1.score": "80"}) == "Pre-load: 80"
@@ -90,3 +92,16 @@ def test_cap_reached_means_no_call():
     assert calls == [] and drafts() == {}
     run = last_run()
     assert run.status == "capped" and "cap $4.00 reached ($4.00 spent" in run.error
+
+
+def test_script_facts_carry_movement_and_only_segment_topics_are_allowed():
+    marts()
+    brief.build()
+    with Session(engine) as s:
+        b = brief.Brief.model_validate(s.scalars(select(brief.DailyBrief)).one().json)
+    f = writer.facts(b)
+    assert f["t1.movement"] == "not in the ranking 6 hours ago" and f["movement"] == "some"
+    caller, _ = fake(GOOD.model_copy(update={"scripts": [GOOD.scripts[0].model_copy(update={"hook": "{{pick.name}} rises"})]}),
+                     GOOD.model_copy(update={"scripts": [GOOD.scripts[0].model_copy(update={"hook": "{{pick.name}} rises"})]}))
+    writer.write(caller)
+    assert "unknown placeholder {{pick.name}}" in drafts()["script_daily_radar"].problems  # pick isn't a segment

@@ -167,6 +167,22 @@ class Draft(Base):
     )
 
 
+class PublishedVideo(Base):
+    """One video the owner published (P9.7 tracking; entered by hand for now: scripts/radar.sh published). New package
+    titles must differ from the last 7. Views filled in later (manual, then YouTube Analytics for our own channel)."""
+
+    __tablename__ = "published_videos"
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    platform: Mapped[str] = mapped_column(String(32))
+    format: Mapped[str | None] = mapped_column(String(32))
+    title: Mapped[str] = mapped_column(Text)
+    url: Mapped[str | None] = mapped_column(Text)
+    package_id: Mapped[str | None] = mapped_column(String(64))
+    views_24h: Mapped[int | None] = mapped_column(BigInteger)
+    views_7d: Mapped[int | None] = mapped_column(BigInteger)
+
+
 @contextmanager
 def connector_run(source: str, job: str):
     """Yields (session, run). Records ok/error and finish time no matter how the job ends."""

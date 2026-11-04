@@ -3,12 +3,15 @@ Everything downstream (digest, Telegram, website "Today", Content Packages) is w
 so every fact in them traces back to a field here. No AI in this step.
 """
 
+import re
 from datetime import date, datetime, timedelta, timezone
+from urllib.parse import urlparse
 
+import httpx
 from pydantic import BaseModel
 from sqlalchemy import func, select, text
 
-from trend_radar import api
+from trend_radar import api, config
 from trend_radar.db import DailyBrief, connector_run, engine
 
 # Same trust rule as the public top 5 (dbt var top5_min_sources): one platform's in-joke isn't the day's news.
@@ -42,10 +45,11 @@ class VideoFact(BaseModel):
 
 class Lead(BaseModel):
     """A research starting point: read it (and its comments), cite it, never show it in a video."""
-    title: str
+    title: str  # shortened links in it replaced by where they lead
     url: str
     by: str | None
     metric: str
+    links: list[str] = []  # links found in the text, resolved; a trailing "…" = truncated in the post
 
 
 class Evidence(BaseModel):
@@ -53,6 +57,7 @@ class Evidence(BaseModel):
     videos: list[Lead] = []
     posts: list[Lead] = []
     news: list[Lead] = []
+    items: list[str] = []  # every trending item under the topic ("source:item_id"), to measure topic overlap
 
 
 class Freshness(BaseModel):
@@ -67,7 +72,7 @@ class Brief(BaseModel):
     scores_at: datetime  # the scored hour every number comes from
     window_hours: int  # topic numbers cover the 24h ending at scores_at
     top5: list[TopicFact]
-    biggest_riser: TopicFact | None  # largest public-rank gain in 6h
+    biggest_riser: TopicFact | None  # largest 6h public-rank gain that passes config RISER_* (else None)
     make_this_now: TopicFact | None  # rising, talked about, few videos yet; None until growth is measurable
     breakout_videos: list[VideoFact]
     off_topic: list[TopicFact]
@@ -83,16 +88,55 @@ def _fact(r: dict) -> TopicFact:
                      channels=r["channels"] or 0)
 
 
+URL = re.compile(r"(?:https?://|www\.)[^\s\"'<>]+")
+
+
+def resolve(url: str) -> str:
+    """Where a shortened link leads (one HEAD request, redirects followed); the link itself on any failure."""
+    try:
+        with httpx.Client(follow_redirects=True, timeout=5, headers={"User-Agent": config.USER_AGENT}) as c:
+            return str(c.head(url).url)
+    except httpx.HTTPError:
+        return url
+
+
+def expand_links(text: str) -> tuple[str, list[str]]:
+    found = []
+
+    def sub(m: re.Match) -> str:
+        link, tail = re.match(r"(.*?)([.,;:)…]*)$", m.group(0)).groups()
+        full = link if link.startswith("http") else "https://" + link
+        if (urlparse(full).hostname or "").removeprefix("www.") in config.SHORTENER_DOMAINS:
+            full = resolve(full)
+        found.append(full + ("…" if "…" in tail or tail.endswith("...") else ""))
+        return full + tail
+    return URL.sub(sub, text), found
+
+
+def _post(p: dict) -> Lead:
+    title, links = expand_links(" ".join(p["title"].split())[:280])
+    return Lead(title=title, url=p["url"], by=p["author"], links=links,
+                metric=f"{int(p['engagement_24h']):,} likes, reposts and replies in 24h")
+
+
+def pick_riser(ranked: list[TopicFact]) -> TopicFact | None:
+    """The biggest 6h climber, only when it's real movement (config RISER_*; Nov 4 review). Else no riser."""
+    ok = [t for t in ranked if t.rank and t.rank_6h_ago and t.rank_6h_ago - t.rank >= config.RISER_MIN_GAIN
+          and t.items >= config.RISER_MIN_ITEMS and t.score >= config.RISER_MIN_SCORE and t.sources >= MIN_SOURCES]
+    return max(ok, key=lambda t: (t.rank_6h_ago - t.rank, t.score), default=None)
+
+
 def _evidence(slug: str) -> Evidence:
     page = api.topic(slug)  # same data as the public topic page
     return Evidence(
         keywords=[k["keyword"] for k in page["keywords"]],
         videos=[Lead(title=v["title"], url=v["url"], by=v["channel_title"], metric=f"{int(v['views_24h']):,} views in 24h")
                 for v in page["videos"][:5]],
-        posts=[Lead(title=" ".join(p["title"].split())[:280], url=p["url"], by=p["author"],
-                    metric=f"{int(p['engagement_24h']):,} likes, reposts and replies in 24h") for p in page["posts"][:3]],
+        posts=[_post(p) for p in page["posts"][:3]],
         news=[Lead(title=n["title"], url=n["url"], by=n["outlet"], metric=f"seen {n['seen_at']:%b %d, %H:%M} UTC")
               for n in page["news"][:3]],
+        items=[r["k"] for r in api.rows("""select source || ':' || item_id as k from analytics.rising_items
+                                           where :slug = any(topics) order by 1""", slug=slug)],
     )
 
 
@@ -112,8 +156,7 @@ def assemble(now: datetime | None = None) -> Brief:
     ranked = [_fact(r) for r in api.rows(api.TOPICS + " where not s.is_off_topic order by s.public_rank limit 20")]
     in_top5 = {r["slug"] for r in api.rows(api.TOPICS + " where s.in_top5")}
     top5 = [t for t in ranked if t.slug in in_top5][:5]
-    gains = [t for t in ranked if t.rank and t.rank_6h_ago and t.rank_6h_ago > t.rank and t.sources >= MIN_SOURCES]
-    riser = max(gains, key=lambda t: (t.rank_6h_ago - t.rank, t.score), default=None)
+    riser = pick_riser(ranked)
 
     last_ok = {r["source"]: r["t"] for r in api.rows("""select source, max(finished_at) as t from connector_runs
                                                         where status in ('ok', 'partial') group by 1""")}
