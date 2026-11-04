@@ -161,7 +161,7 @@
 <body>
 <main>
 
-<p class="muted small">Trend Radar · data architecture · snapshot Tue Nov 3, 2026, 16:45 UTC · updated Nov 4: News RSS + bronze TTL live</p>
+<p class="muted small">Trend Radar · data architecture · snapshot Tue Nov 3, 2026, 16:45 UTC · updated Nov 4: News RSS, Bluesky + bronze TTL live</p>
 <h1>Data architecture: where we stand</h1>
 <p class="lede">An hourly <b>batch pipeline</b> on a <b>medallion architecture</b>. Connectors <b>extract</b> from three upstream APIs,
 <b>load</b> the raw payloads into a <b>bronze</b> zone and conformed records into <b>silver</b>, all in one Postgres warehouse.
@@ -174,7 +174,7 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
 </div>
 
 <div class="kpis">
-  <div class="card kpi"><div class="v">3 / 4</div><div class="l">sources in production (Twitch: upstream not ready)</div></div>
+  <div class="card kpi"><div class="v">4 / 5</div><div class="l">sources in production (Twitch: upstream not ready)</div></div>
   <div class="card kpi"><div class="v">32</div><div class="l">bronze rows (54 kB raw JSON)</div></div>
   <div class="card kpi"><div class="v">851</div><div class="l">silver rows (103 items + 748 signals)</div></div>
   <div class="card kpi"><div class="v">0 / 9</div><div class="l">pipeline runs failed</div></div>
@@ -189,7 +189,7 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
 <div class="arch">
   <div class="flow">
     <div class="stage z-src">
-      <div class="sh"><span class="num">①</span><div><div class="term">Source systems (upstream)</div><div class="tool">YouTube Data API v3 · Twitch Helix · Wikimedia Pageviews REST · News RSS (8 feeds) · Bluesky</div></div><span class="chip live">3 live · 2 waiting</span></div>
+      <div class="sh"><span class="num">①</span><div><div class="term">Source systems (upstream)</div><div class="tool">YouTube Data API v3 · Twitch Helix · Wikimedia Pageviews REST · News RSS (8 feeds) · Bluesky</div></div><span class="chip live">4 live · 1 waiting</span></div>
       <ul><li>Official APIs only. Pull-based (we poll), no webhooks or streams.</li>
           <li>Each has its own limits: YouTube 10,000 units/day, Twitch 800 points/min, Wikipedia asks for a polite User-Agent.</li></ul>
     </div>
@@ -377,7 +377,7 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
     <tr><td><code>youtube.channels</code></td><td class="nw">cron 06:15 daily</td><td><code>items</code> channels → channels.list</td><td>bronze, <code>items</code>, <code>signals</code></td><td>1 unit / 50 channels</td><td><span class="chip live">Live</span> <span class="sub">first run tomorrow</span></td></tr>
     <tr><td><code>twitch.collect</code></td><td class="nw">cron :10 (+ on start)</td><td>games → streams (paged) → clips</td><td>bronze, <code>items</code>, <code>signals</code></td><td>~13 calls</td><td><span class="chip wait">Waiting</span></td></tr>
     <tr><td><code>wikipedia.collect</code></td><td class="nw">interval 6h (+ on start)</td><td>per-article pageviews, 30-day lookback</td><td>bronze, <code>items</code>, <code>signals</code></td><td>6 calls</td><td><span class="chip live">Live</span></td></tr>
-    <tr><td><code>bluesky.collect</code></td><td class="nw">cron :25 (+ on start)</td><td>login → searchPosts (24h, latest + top)</td><td>bronze, <code>items</code>, <code>signals</code></td><td>1 login + ≤10 calls</td><td><span class="chip wait">Needs password</span></td></tr>
+    <tr><td><code>bluesky.collect</code></td><td class="nw">cron :25 (+ on start)</td><td>login → searchPosts (24h, latest + top)</td><td>bronze, <code>items</code>, <code>signals</code></td><td>1 login + ≤10 calls</td><td><span class="chip live">Live</span></td></tr>
     <tr><td><code>rss.collect</code></td><td class="nw">cron :20 (+ on start)</td><td>8 RSS 2.0 feeds, GTA keyword filter</td><td>bronze (all entries), <code>items</code></td><td>8 requests</td><td><span class="chip live">Live</span></td></tr>
     <tr><td><code>maintenance.purge_raw</code></td><td class="nw">cron 03:30 daily</td><td>bronze</td><td>deletes rows &gt; 30 days</td><td>0</td><td><span class="chip live">Live</span></td></tr>
   </tbody>

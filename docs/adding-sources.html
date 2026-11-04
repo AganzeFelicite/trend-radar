@@ -133,8 +133,8 @@ a <b>dbt source</b> with a freshness check and a <b>staging model</b>.</p>
 <p class="muted small">Plan (your call, Nov 4): get all sources in first, then build the transform layer with dbt. You can follow this page yourself in PyCharm, or tell me "add &lt;source&gt;" and I follow the same steps.</p>
 
 <div class="cov">
-  <div class="card"><div class="v">3</div><div class="l">live</div></div>
-  <div class="card"><div class="v">2</div><div class="l">built, waiting (Twitch, Bluesky)</div></div>
+  <div class="card"><div class="v">4</div><div class="l">live</div></div>
+  <div class="card"><div class="v">1</div><div class="l">built, waiting (Twitch)</div></div>
   <div class="card"><div class="v">0</div><div class="l">buildable now</div></div>
   <div class="card"><div class="v">3</div><div class="l">waiting on approval</div></div>
   <div class="card"><div class="v">4</div><div class="l">skipped / deferred</div></div>
@@ -150,7 +150,7 @@ a <b>dbt source</b> with a freshness check and a <b>staging model</b>.</p>
     <tr><td class="nw"><b>Twitch Helix</b></td><td>Live streams (viewers), top clips (views)</td><td>Client ID + secret</td><td>Keys OK; no "Grand Theft Auto VI" category yet</td><td><span class="chip wait">Waiting</span></td></tr>
     <tr><td class="nw"><b>Wikipedia Pageviews</b></td><td>Daily views of GTA articles</td><td>None (User-Agent)</td><td>Live since Nov 3</td><td><span class="chip live">Live</span></td></tr>
     <tr><td class="nw"><b>News RSS</b></td><td>Headlines, links, publish times from gaming news sites. No engagement numbers.</td><td>None</td><td>8/8 feeds respond, 7 had GTA headlines: GameSpot, Eurogamer, IGN, Kotaku, GamesRadar, PC Gamer, Polygon, VGC<span class="sub">Rockstar Newswire: no feed found (404)</span></td><td><span class="chip live">Live</span><span class="sub">since Nov 4</span></td></tr>
-    <tr><td class="nw"><b>Bluesky</b></td><td>Posts mentioning GTA 6, with likes, reposts, replies</td><td>Free account + app password</td><td>Public search returns 403, so a login is needed</td><td><span class="chip wait">Built</span><span class="sub">tests pass; switches on with your app password</span></td></tr>
+    <tr><td class="nw"><b>Bluesky</b></td><td>Posts mentioning GTA 6, with likes, reposts, replies</td><td>Free account + app password</td><td>Public search returns 403, so a login is needed</td><td><span class="chip live">Live</span><span class="sub">since Nov 4</span></td></tr>
     <tr><td class="nw"><b>Reddit</b></td><td>Posts in GTA subreddits, with score and comment count. The biggest GTA community.</td><td>Approved API access (OAuth); commercial use needs an agreement</td><td>Application (keys guide B)</td><td><span class="chip wait">Approval</span><span class="sub">can be built against mocks first</span></td></tr>
     <tr><td class="nw"><b>Google Trends API</b></td><td>Search interest over time</td><td>Alpha access by application</td><td>Application (keys guide B)</td><td><span class="chip wait">Approval</span></td></tr>
     <tr><td class="nw"><b>Threads</b></td><td>Posts by keyword</td><td>Meta app review, needs a privacy policy URL</td><td>Not yet</td><td><span class="chip wait">After site live</span></td></tr>
@@ -167,7 +167,7 @@ a <b>dbt source</b> with a freshness check and a <b>staging model</b>.</p>
 <p class="muted">Free sources with no approval first, then the ones that wait on approval. dbt starts after the gate.</p>
 <div class="card order">
   <div><div><b>News RSS ✓ live Nov 4</b><span>No key. Gives news momentum: how many outlets cover a topic per hour.</span></div></div>
-  <div><div><b>Bluesky ✓ built Nov 4</b><span>Switches on once your app password is in <code>.env</code>. Gives social posts with engagement.</span></div></div>
+  <div><div><b>Bluesky ✓ live Nov 4</b><span>624 posts/day from 435 authors on the first run. Gives social posts with engagement.</span></div></div>
   <div><div><b>Reddit, built against mocks</b><span>Reddit's API format is stable and documented, so the connector + tests can be ready before approval and switched on the day the key arrives.</span></div></div>
   <div><div><b>Google Trends</b><span>When alpha access is granted. Optional: nothing breaks without it.</span></div></div>
   <div class="gate"><div><b>Gate: sources in → start dbt (P3.1)</b><span>Threads joins after the site is live; it doesn't block dbt.</span></div></div>

@@ -99,7 +99,9 @@ Done when: three sources land in `signals`, a backup restores, and a push to `ma
   - [x] News RSS (Nov 4): 8 feeds, GTA keyword filter, `items` only; broken feeds isolated (`partial`). 3 tests; real run: 8/8 feeds ok, 24 GTA headlines from 7 outlets
   - [ ] Bluesky: needs a free app password (public search returns 403)
     - [x] Connector + 3 tests against a mocked API (Nov 4): one login per run, latest + top over 24h, 4 metrics per post
-    - [ ] Real run: waiting on `BLUESKY_HANDLE` + `BLUESKY_APP_PASSWORD`; tune queries (`GTA 6` vs `GTA6`/`GTA VI`) on real results
+    - [x] Real run (Nov 4): 624 unique posts / 435 authors over 24h; 'latest' reaches back ~10h at ~50 posts/h
+    - [x] Fixes from real data: link-card title joined to post text (GTA words found 513 → 617 of 625); adult-labelled posts kept out of silver; completeness check (`partial` if 'latest' reaches back < 2h)
+    - [ ] Tune queries (`GTA 6` vs `GTA6`/`GTA VI`) once the language decision is made
   - [ ] Reddit: when API access is approved (can be built against mocks first)
   - [ ] Google Trends API: when alpha access is granted
   - Verified:

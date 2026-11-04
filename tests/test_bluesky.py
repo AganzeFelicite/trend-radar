@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta, timezone
 
 import httpx
 import pytest
@@ -11,11 +12,11 @@ from trend_radar.connectors import bluesky
 from trend_radar.db import ConnectorRun, Item, Signal, engine
 
 
-def post(i, likes=5):
-    return {"uri": f"at://did:plc:abc{i}/app.bsky.feed.post/3k{i}", "cid": "bafy",
+def post(i, likes=5, indexed="2026-11-04T10:00:01Z", **extra):
+    return {**extra,"uri": f"at://did:plc:abc{i}/app.bsky.feed.post/3k{i}", "cid": "bafy",
             "author": {"did": f"did:plc:abc{i}", "handle": f"user{i}.bsky.social"},
             "record": {"text": f"GTA 6 map looks huge #{i}", "createdAt": "2026-11-04T10:00:00Z"},
-            "indexedAt": "2026-11-04T10:00:01Z", "likeCount": likes, "repostCount": 1, "replyCount": 2}
+            "indexedAt": indexed, "likeCount": likes, "repostCount": 1, "replyCount": 2}
 
 
 def fake_bluesky(monkeypatch, pages, login_status=200):
@@ -78,3 +79,28 @@ def test_schema_change_fails_the_run(monkeypatch):
 
     with Session(engine) as s:
         assert s.scalar(select(func.count()).select_from(Item)) == 0
+
+
+def test_link_card_title_joins_the_text_and_adult_labelled_posts_are_dropped(monkeypatch):
+    card = post(1, embed={"$type": "app.bsky.embed.external#view",
+                          "external": {"uri": "https://news.example", "title": "GTA 6 preload starts in a week"}})
+    card["record"]["text"] = "wow"
+    adult = post(2, labels=[{"src": "did:plc:mod", "uri": "at://x", "val": "porn", "cts": "2026-11-04T10:00:00Z"}])
+    http, _ = fake_bluesky(monkeypatch, [[card, adult]])
+
+    bluesky.collect(http)
+
+    with Session(engine) as s:
+        assert s.scalars(select(Item.title)).all() == ["wow — GTA 6 preload starts in a week"]
+
+
+def test_latest_capped_under_two_hours_marks_run_partial(monkeypatch):
+    monkeypatch.setattr(config, "BLUESKY_MAX_PAGES", 1)
+    recent = (datetime.now(timezone.utc) - timedelta(minutes=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    http, _ = fake_bluesky(monkeypatch, [[post(1, indexed=recent)], [post(2, indexed=recent)]])  # more pages waiting
+
+    bluesky.collect(http)
+
+    with Session(engine) as s:
+        run = s.scalars(select(ConnectorRun)).one()
+        assert run.status == "partial" and "raise BLUESKY_MAX_PAGES" in run.error
