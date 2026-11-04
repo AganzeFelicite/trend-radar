@@ -36,4 +36,4 @@ Step-by-step guide with copy-paste templates and the source catalog: [adding-sou
 8. **Schedule** in `scheduler.py`, gated on its keys being present.
 9. **Test** in `tests/test_<source>.py` with `httpx.MockTransport`: data lands, a re-run doesn't duplicate, and the source's failure mode is handled (bad token, missing data, quota).
 10. **Terms:** official API only, respect its rate limits and storage rules, never resell raw data.
-11. **dbt:** add every new metric to `dbt/seeds/metric_catalog.csv` (the build fails otherwise, on purpose) and a freshness entry in `dbt/models/staging/_sources.yml`. Transform runs hourly at :40 (`transform.build`).
+11. **dbt:** add every new metric to `dbt/seeds/metric_catalog.csv` (the build fails otherwise, on purpose; `activity=true` for the metric that measures attention), a row in `dbt/seeds/source_weights.csv` (tested too), and a freshness entry in `dbt/models/staging/_sources.yml`. Scoring: `docs/SCORING.md`. Transform runs hourly at :40 (`transform.build`).

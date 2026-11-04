@@ -6,3 +6,21 @@ models:
     columns:
       - name: captured_at
         data_tests: [not_null]
+  - name: int_item_quality
+    description: Spam / repost / reupload flags per item. Flagged items are left out of scoring.
+    columns:
+      - name: spam_reason
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [low_engagement, repost, reupload]
+  - name: int_item_activity
+    description: Attention gained per item per hour, in the source's own unit. Input to topic_scores.
+    columns:
+      - name: source
+        description: Every source here needs a row in seeds/source_weights.csv, or scoring would drop it silently.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('source_weights')
+                field: source

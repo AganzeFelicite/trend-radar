@@ -19,3 +19,6 @@ vars:
   # 'en': discover new phrases from English titles only (your call, Nov 4). 'all': every language.
   # Alias matching always runs on every language (names like Lucia or Vice City don't translate).
   topic_discovery_languages: en
+  # Scoring windows (docs/SCORING.md): momentum compares the last N hours with the N before; burst = last M hours.
+  momentum_window_hours: 24
+  burst_window_hours: 3

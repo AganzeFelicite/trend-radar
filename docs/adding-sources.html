@@ -421,11 +421,15 @@ docker compose exec worker python -c "from trend_radar.connectors import example
 </div></div>
 
 <div class="step"><div class="n">7</div><div>
-  <h3>Register it in dbt <span class="de">metric catalog + freshness</span></h3>
+  <h3>Register it in dbt <span class="de">metric catalog + source weight + freshness</span></h3>
   <p class="small"><b>Required:</b> every metric the connector writes must be in the metric catalog. If one is missing, the <code>not_null_stg_signals_kind</code> test fails and the whole dbt build stops. That's on purpose: it's the contract between ingestion and transform.</p>
   <div class="code"><span class="fn">dbt/seeds/metric_catalog.csv: one row per metric (kind = cumulative | gauge | per_period)</span><button class="copy">Copy</button>
-<pre>example,likes,cumulative,hour,Total likes of a post
-example,replies,cumulative,hour,Total replies to a post</pre></div>
+<pre>example,likes,cumulative,hour,true,Total likes of a post
+example,replies,cumulative,hour,true,Total replies to a post</pre></div>
+  <p class="small"><code>activity</code> (5th column) = does this metric count as attention in the momentum score? Use <code>true</code> for the source's main measure (views, engagement, viewers), <code>false</code> for side metrics. No activity metric at all (like RSS) → each item counts 1 (a mention).</p>
+  <div class="code"><span class="fn">dbt/seeds/source_weights.csv: the source's weight in the topic score (0 = collected, not scored)</span><button class="copy">Copy</button>
+<pre>example,0.10,Why this source matters for "what's rising"</pre></div>
+  <p class="small muted">Required too: a source in the scores without a weight fails the <code>relationships_int_item_activity_source</code> test, instead of silently dropping out. Weights are renormalised over the sources that have data, so they don't need to sum to 1. See <code>docs/SCORING.md</code>.</p>
   <div class="code"><span class="fn">dbt/models/staging/_sources.yml: a freshness check for the source</span><button class="copy">Copy</button>
 <pre>      - name: example_signals
         identifier: signals
@@ -523,7 +527,7 @@ git push</pre></div>
   <label><input type="checkbox" data-k="tests"> 3 tests pass (lands + idempotent · failure mode · schema drift), full suite green</label>
   <label><input type="checkbox" data-k="real"> Real run: <code>connector_runs</code> ok, rows in silver, raw payload looks right</label>
   <label><input type="checkbox" data-k="docs"> CONNECTORS.md row, architecture page, PLAN.md ticked</label>
-  <label><input type="checkbox" data-k="dbt"> Metrics in <code>metric_catalog.csv</code> + freshness entry; <code>dbt build</code> green</label>
+  <label><input type="checkbox" data-k="dbt"> Metrics in <code>metric_catalog.csv</code> (with <code>activity</code>) + a row in <code>source_weights.csv</code> + freshness entry; <code>dbt build</code> green</label>
   <label><input type="checkbox" data-k="commit"> Committed and pushed; <code>.env</code> not in the commit</label>
   <label><input type="checkbox" data-k="day1"> First 24h reviewed: every run ok, under budget</label>
   <button id="reset" type="button">Clear ticks</button>

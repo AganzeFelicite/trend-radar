@@ -161,13 +161,13 @@
 <body>
 <main>
 
-<p class="muted small">Trend Radar · data architecture · snapshot Tue Nov 3, 2026, 16:45 UTC · updated Nov 4: News RSS, Bluesky, bronze TTL, dbt silver layer + topics live</p>
+<p class="muted small">Trend Radar · data architecture · snapshot Tue Nov 3, 2026, 16:45 UTC · updated Nov 4: News RSS, Bluesky, bronze TTL, dbt silver layer, topics + momentum scores live</p>
 <h1>Data architecture: where we stand</h1>
 <p class="lede">An hourly <b>batch pipeline</b> on a <b>medallion architecture</b>. Connectors <b>extract</b> from three upstream APIs,
 <b>load</b> the raw payloads into a <b>bronze</b> zone and conformed records into <b>silver</b>, all in one Postgres warehouse.
-Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b>gold</b> marts (topics, momentum scores) for the
+<b>dbt</b> (SQL) <b>transformations</b> inside the warehouse build the <b>gold</b> marts (topics, momentum scores) for the
 <b>serving layer</b> (API, website) and <b>activation</b> (email, Telegram).
-<b>Built: sources → ingestion → bronze → silver, plus orchestration. Not built: gold, serving, activation, the production platform.</b></p>
+<b>Built: sources → ingestion → bronze → silver → gold, plus orchestration. Not built: serving, activation, the production platform.</b></p>
 <div class="tags">
   <span>Batch, hourly micro-batches</span><span>EL at ingest + in-warehouse T (ELT)</span><span>Medallion: bronze / silver / gold</span>
   <span>Idempotent upserts</span><span>Single-node Postgres 17</span><span>Cron-style orchestration</span><span>Runs locally (Docker)</span>
@@ -221,10 +221,10 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
 
     <div class="hop"><b>TRANSFORM</b> dbt Core: SQL inside the warehouse (ELT) · <code>dbt build</code> after each ingestion cycle</div>
     <div class="stage z-gold">
-      <div class="sh"><span class="num">⑤</span><div><div class="term">Gold: marts</div><div class="tool">dbt models (SQL only) · <code>topics</code>, <code>topic_items</code>, <code>phrase_candidates</code> live · <code>topic_scores</code> next</div></div><span class="chip part">Topics live · scores next</span></div>
+      <div class="sh"><span class="num">⑤</span><div><div class="term">Gold: marts</div><div class="tool">dbt models (SQL only) · <code>topics</code>, <code>topic_items</code>, <code>phrase_candidates</code>, <code>topic_scores</code>, <code>rising_items</code> live · formula in <code>docs/SCORING.md</code></div></div><span class="chip part">Live · top-20 review pending</span></div>
       <ul><li><b>Entity resolution</b>: clean titles, group videos into topics via keyword aliases + n-grams, with stable topic IDs.</li>
-          <li><b>Feature engineering</b>: growth rate vs baseline → momentum score + flags.</li>
-          <li><b>Outlier filtering</b>: spam (huge views, almost no engagement), reuploads.</li></ul>
+          <li><b>Feature engineering</b>: activity per item per hour (event time) → each topic's share of each source's activity (own baseline) → weighted across sources → growth vs previous 24h, like-for-like → score = attention × growth, flags NEW / SPIKING / CONFIRMED.</li>
+          <li><b>Outlier filtering</b> (<code>int_item_quality</code>): spam (50k+ views, under 1 comment per 20k), reposts, reuploads; flagged items never reach the scores.</li></ul>
     </div>
     <div class="hop"><b>SERVE</b> read-only queries against gold</div>
 
@@ -311,7 +311,11 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
     <tr><td class="nw"><code>topics</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Dimension (stable IDs = slugs)</td><td>one topic</td><td><code>topic_slug</code></td><td>rebuild hourly</td><td>derived</td><td class="num">27</td></tr>
     <tr><td class="nw"><code>topic_items</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Bridge table</td><td>topic × item (+ alias that matched)</td><td><code>(topic_slug, source, item_id)</code></td><td>rebuild hourly</td><td>derived</td><td class="num">671</td></tr>
     <tr><td class="nw"><code>phrase_candidates</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Review list</td><td>2–3-word phrase in the last 24h, no alias yet, 3+ authors</td><td><code>phrase</code></td><td>rebuild hourly</td><td>derived</td><td class="num">151</td></tr>
-    <tr class="planned"><td class="nw"><code>topic_scores</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Periodic snapshot fact</td><td>topic × hour</td><td><code>(topic_id, hour)</code></td><td>upsert</td><td>indefinite</td><td class="num">P3.3</td></tr>
+    <tr><td class="nw"><code>source_weights</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>dbt seed (config)</td><td>one source: weight in the topic score</td><td><code>source</code> (every scored source must have one, tested)</td><td>seeded each build</td><td>in git</td><td class="num">5</td></tr>
+    <tr><td class="nw"><code>int_item_quality</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>dbt table</td><td>one item: spam reason or null</td><td><code>(source, item_id)</code></td><td>rebuild hourly</td><td>derived</td><td class="num">items</td></tr>
+    <tr><td class="nw"><code>int_item_activity</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>dbt table</td><td>item × hour: attention gained (views, engagement, viewers, 1 per headline)</td><td><code>(source, item_id, hour)</code></td><td>rebuild hourly</td><td>derived</td><td class="num">2,386</td></tr>
+    <tr><td class="nw"><code>topic_scores</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Periodic snapshot fact (accumulating history)</td><td>topic × hour, last 7 days</td><td><code>(topic_slug, scored_at)</code> (tested unique)</td><td>full rebuild hourly; late data restates recent hours</td><td>7 days rolling</td><td class="num">~4.5k</td></tr>
+    <tr><td class="nw"><code>rising_items</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Mart</td><td>item active in the last 24h: per hour, per 1k subscribers, topics</td><td><code>(source, item_id)</code></td><td>rebuild hourly</td><td>derived</td><td class="num">items</td></tr>
     <tr class="planned"><td class="nw"><code>waitlist</code>, <code>alerts_sent</code></td><td class="nw"><i class="zone app"></i>App (OLTP)</td><td>Transactional</td><td>one signup · one alert per topic per day</td><td>unique email · unique <code>(topic_id, date)</code></td><td>insert</td><td>until unsubscribe</td><td class="num">P4–5</td></tr>
   </tbody>
 </table></div>
@@ -426,7 +430,7 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
     <tr><td><b>Sources + ingestion</b></td><td><span class="chip live">Live</span></td><td>Twitch waits for its category; uploads-playlist discovery (needs a channel list)</td><td class="nw">P1.5 · P2.1–P2.3</td></tr>
     <tr><td><i class="zone bronze"></i><b>Bronze</b></td><td><span class="chip live">Live</span></td><td>Done: 30-day purge runs daily</td><td class="nw">P1.4 + cleanup</td></tr>
     <tr><td><i class="zone silver"></i><b>Silver</b></td><td><span class="chip live">Live</span></td><td>Done: dbt silver models, tests, freshness (Nov 4)</td><td class="nw">P3.1</td></tr>
-    <tr><td><i class="zone gold"></i><b>Gold</b></td><td><span class="chip part">Partial</span></td><td>Done: topics (P3.2). Left: scores, spam filter, top-20 review (P3.3)</td><td class="nw">P3.2 · P3.3</td></tr>
+    <tr><td><i class="zone gold"></i><b>Gold</b></td><td><span class="chip part">Partial</span></td><td>Done: topics (P3.2), scores + spam filter (P3.3). Left: your top-20 review</td><td class="nw">P3.2 · P3.3</td></tr>
     <tr><td><b>Serving</b></td><td><span class="chip plan">Not started</span></td><td>API, website, SEO, mobile</td><td class="nw">P4.1–P4.6</td></tr>
     <tr><td><b>Activation</b></td><td><span class="chip plan">Not started</span></td><td>Email digest, Telegram alerts, daily card</td><td class="nw">P5.1–P5.3</td></tr>
     <tr><td><b>Orchestration</b></td><td><span class="chip live">Live</span></td><td>Done: <code>transform.build</code> hourly at :40</td><td class="nw">P3.1</td></tr>
@@ -472,8 +476,7 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
   <div class="card"><h3>Me</h3><ol>
     <li><b>Bronze TTL</b>: daily <code>purge_raw</code> job + test.</li>
     <li><b>More sources first</b> (your call, Nov 4): News RSS, Bluesky; Reddit and Google Trends when approved.</li>
-    <li><b>dbt P3.1 + P3.2 ✓ live Nov 4</b>: silver layer and keyword topics. Next: <b>P3.3 momentum scoring</b> + spam filter → top 20 for your review.</li>
-    <li><b>Gold P3.2–3.3</b>: topics, momentum score, spam filter → top 20 for your review.</li>
+    <li><b>dbt P3.1–P3.3 ✓ live Nov 4</b>: silver layer, keyword topics, momentum scores + spam filter. Next: your <b>top-20 review</b>, then Phase 4 (API + website).</li>
   </ol></div>
   <div class="card"><h3>You</h3><ol>
     <li class="urgent">Plug in the charger now (battery 3–4%) and stop the Mac sleeping on power.</li>

@@ -120,9 +120,9 @@ Done when: hourly top topics look sensible to a human, with no obvious duplicate
   - [x] `phrase_candidates` review list (3+ authors, ranked by items in no topic yet); first curation pass added 2 topics + 15 aliases (coverage 38% → 42%)
   - Verified: real data: 27 topics, 671 topic-item links, top topics Pre-load 128 · File size 124 · Xbox 99; dbt 26/26 in the worker; pytest 22 passed
   - Verified:
-- [ ] **P3.3** Momentum scoring + flags → `topic_scores`; spam/reupload filters; `docs/SCORING.md`
+- [x] **P3.3** Momentum scoring + flags → `topic_scores`; spam/reupload filters; `docs/SCORING.md`
   - [ ] Owner reviews top 20 and approves (or triggers embeddings upgrade)
-  - Verified:
+  - Verified: dbt models `int_item_quality` (spam), `int_item_activity` (item × hour, event time), `topic_scores` (topic × hour, 7 days), `rising_items`; seed `source_weights`. Real data Nov 4 01:46: 35/35 dbt nodes, 30 items flagged (23 low-engagement videos, 7 reposts), top 5 = preload, xbox, release-date, file-size, map; growth = 1 until 48h after each source started (like-for-like guard). pytest `test_scores_rank_size_times_growth_flag_spikes_and_new_topics_and_drop_spam` (ranking, capped growth, SPIKING, NEW, spam drop, coverage guard); 23 passed.
 
 ## Phase 4: The product (Nov 9–11)
 Done when: a stranger on a phone understands the site, sees today's top topics, and joins the waitlist in under a minute.

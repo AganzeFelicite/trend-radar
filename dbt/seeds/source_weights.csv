@@ -1,0 +1,6 @@
+source,weight,why
+youtube,0.40,Biggest GTA audience; views are the closest thing to demand creators can act on
+bluesky,0.20,Fastest conversation signal; engagement = likes + reposts + replies + quotes
+rss,0.15,Editorial: what the gaming press covers (count of headlines)
+twitch,0.15,Live viewers; switches on when the Twitch category exists
+wikipedia,0.00,Daily and 1-2 days late; kept for topic pages but can't say what is rising this hour

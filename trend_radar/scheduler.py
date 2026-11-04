@@ -28,7 +28,8 @@ def main() -> None:
     if config.YOUTUBE_API_KEY:
         sched.add_job(youtube.discover, "interval", hours=config.YOUTUBE_SEARCH_EVERY_HOURS, next_run_time=now)
         sched.add_job(youtube.snapshot, "cron", minute=5)
-        sched.add_job(youtube.channels, "cron", hour=6, minute=15)
+        # Also on start (after discovery): a sleeping Mac misses 06:15, and it costs ~6 units.
+        sched.add_job(youtube.channels, "cron", hour=6, minute=15, next_run_time=now + timedelta(minutes=2))
     else:
         log.warning("YOUTUBE_API_KEY not set: YouTube jobs disabled")
 

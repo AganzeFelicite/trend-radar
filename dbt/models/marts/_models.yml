@@ -17,3 +17,14 @@ models:
                 field: topic_slug
   - name: phrase_candidates
     description: Phrases trending in the last 24h that no alias covers. Review by uncovered_items desc, add good ones to seeds/topic_aliases.csv.
+  - name: topic_scores
+    description: Hourly momentum per topic (last 7 days). Latest ranking = rows where scored_at = max(scored_at). See docs/SCORING.md.
+    columns:
+      - name: topic_slug
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('topics')
+                field: topic_slug
+  - name: rising_items
+    description: Items active in the last 24h with age- and channel-size-adjusted growth. Evidence for each topic.

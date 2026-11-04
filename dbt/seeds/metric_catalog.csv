@@ -1,12 +1,12 @@
-source,metric_name,kind,bucket,description
-youtube,views,cumulative,hour,Total views of a video
-youtube,likes,cumulative,hour,Total likes of a video
-youtube,comments,cumulative,hour,Total comments on a video
-youtube,subscribers,cumulative,day,Subscribers of a channel
-twitch,viewers,gauge,hour,Concurrent viewers of a live stream at capture time
-twitch,views,cumulative,hour,Total views of a clip
-wikipedia,pageviews,per_period,day,Views of an article on that day (users only)
-bluesky,likes,cumulative,hour,Total likes of a post
-bluesky,reposts,cumulative,hour,Total reposts of a post
-bluesky,replies,cumulative,hour,Total replies to a post
-bluesky,quotes,cumulative,hour,Total quote posts of a post
+source,metric_name,kind,bucket,activity,description
+youtube,views,cumulative,hour,true,Total views of a video
+youtube,likes,cumulative,hour,false,Total likes of a video
+youtube,comments,cumulative,hour,false,Total comments on a video
+youtube,subscribers,cumulative,day,false,Subscribers of a channel
+twitch,viewers,gauge,hour,true,Concurrent viewers of a live stream at capture time
+twitch,views,cumulative,hour,false,Total views of a clip
+wikipedia,pageviews,per_period,day,true,Views of an article on that day (users only)
+bluesky,likes,cumulative,hour,true,Total likes of a post
+bluesky,reposts,cumulative,hour,true,Total reposts of a post
+bluesky,replies,cumulative,hour,true,Total replies to a post
+bluesky,quotes,cumulative,hour,true,Total quote posts of a post
