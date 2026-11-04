@@ -54,3 +54,30 @@ def test_metric_missing_from_catalog_fails_the_build():
 
     with Session(engine) as s:
         assert s.scalars(select(ConnectorRun.status)).one() == "error"
+
+
+def test_topics_normalise_gta_names_match_aliases_and_surface_phrases_from_3_authors():
+    now = datetime.now(timezone.utc)
+    items = [
+        ("y1", "c1", "GTA6 PRELOAD starts November 10!"),          # → preload ("gta6" normalised)
+        ("y2", "c2", "Grand Theft Auto VI map size revealed"),     # → map (longest alias "map size")
+        ("y3", "c3", "GTA V vs GTA 6: what changed?"),             # → gta-5, not gta 6
+        ("y4", "c4", "成功撤离#GTA6"),                               # not English, no topic
+        *[(f"b{i}", f"a{i}", f"The black friday deals before launch #{i}") for i in range(3)],  # 3 authors
+        *[(f"s{i}", f"z{i}", f"What is the secret ending in it {i}") for i in range(2)],        # only 2 authors
+    ]
+    with Session(engine) as s:
+        upsert_items(s, [dict(source="youtube", item_id=i, item_type="video", title=t, url=f"https://y/{i}",
+                              channel_id=c, published_at=now) for i, c, t in items])
+        s.commit()
+
+    transform.build()
+
+    with engine.connect() as c:
+        topics = dict(c.execute(text("select item_id, string_agg(topic_slug, ',' order by topic_slug) "
+                                     "from analytics.topic_items group by 1")).all())
+        english = dict(c.execute(text("select item_id, is_english from analytics.int_item_text")).all())
+        phrases = dict(c.execute(text("select phrase, channels from analytics.phrase_candidates")).all())
+    assert topics == {"y1": "preload", "y2": "map", "y3": "gta-5"}
+    assert english["y3"] is True and english["y4"] is False
+    assert phrases.get("black friday") == 3 and "secret ending" not in phrases

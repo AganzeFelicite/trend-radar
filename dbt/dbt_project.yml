@@ -12,3 +12,10 @@ models:
       +materialized: view
     intermediate:
       +materialized: table
+    marts:
+      +materialized: table
+
+vars:
+  # 'en': discover new phrases from English titles only (your call, Nov 4). 'all': every language.
+  # Alias matching always runs on every language (names like Lucia or Vice City don't translate).
+  topic_discovery_languages: en

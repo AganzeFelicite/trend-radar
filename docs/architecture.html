@@ -161,7 +161,7 @@
 <body>
 <main>
 
-<p class="muted small">Trend Radar · data architecture · snapshot Tue Nov 3, 2026, 16:45 UTC · updated Nov 4: News RSS, Bluesky, bronze TTL + dbt silver layer live</p>
+<p class="muted small">Trend Radar · data architecture · snapshot Tue Nov 3, 2026, 16:45 UTC · updated Nov 4: News RSS, Bluesky, bronze TTL, dbt silver layer + topics live</p>
 <h1>Data architecture: where we stand</h1>
 <p class="lede">An hourly <b>batch pipeline</b> on a <b>medallion architecture</b>. Connectors <b>extract</b> from three upstream APIs,
 <b>load</b> the raw payloads into a <b>bronze</b> zone and conformed records into <b>silver</b>, all in one Postgres warehouse.
@@ -221,7 +221,7 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
 
     <div class="hop"><b>TRANSFORM</b> dbt Core: SQL inside the warehouse (ELT) · <code>dbt build</code> after each ingestion cycle</div>
     <div class="stage z-gold">
-      <div class="sh"><span class="num">⑤</span><div><div class="term">Gold: marts</div><div class="tool">dbt models + one Python step (topic extraction) · tables <code>topics</code>, <code>topic_items</code>, <code>topic_scores</code></div></div><span class="chip plan">Phase 3</span></div>
+      <div class="sh"><span class="num">⑤</span><div><div class="term">Gold: marts</div><div class="tool">dbt models (SQL only) · <code>topics</code>, <code>topic_items</code>, <code>phrase_candidates</code> live · <code>topic_scores</code> next</div></div><span class="chip part">Topics live · scores next</span></div>
       <ul><li><b>Entity resolution</b>: clean titles, group videos into topics via keyword aliases + n-grams, with stable topic IDs.</li>
           <li><b>Feature engineering</b>: growth rate vs baseline → momentum score + flags.</li>
           <li><b>Outlier filtering</b>: spam (huge views, almost no engagement), reuploads.</li></ul>
@@ -282,7 +282,7 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
     <tr><td class="nw"><b>Schema migrations</b></td><td>Versioned DDL</td><td>Alembic</td><td><span class="chip live">Live</span></td><td>n/a</td></tr>
     <tr><td class="nw"><b>Pipeline observability</b></td><td>Run status, volume, cost, errors</td><td><code>connector_runs</code> + logs; later Sentry, Healthchecks.io, Telegram ops alerts</td><td><span class="chip part">Partial</span></td><td>Many pipelines → metrics stack (Prometheus/Grafana)</td></tr>
     <tr><td class="nw"><b>Data quality tests</b></td><td>Assert invariants on data</td><td>DB constraints + dbt tests (not_null, accepted_values, singular SQL tests) + source freshness</td><td><span class="chip live">Live</span></td><td>Great Expectations only if dbt tests fall short</td></tr>
-    <tr><td class="nw"><b>Topic modelling</b></td><td>Group items into entities</td><td>Keyword aliases + n-grams</td><td><span class="chip plan">Phase 3</span></td><td>Top-20 review fails → MiniLM embeddings in pgvector + HDBSCAN</td></tr>
+    <tr><td class="nw"><b>Topic modelling</b></td><td>Group items into entities</td><td>Keyword aliases (seed, 27 topics) + 2–3-word phrase discovery, SQL in dbt</td><td><span class="chip live">Live (P3.2)</span></td><td>Top-20 review fails → MiniLM embeddings in pgvector + HDBSCAN</td></tr>
     <tr><td class="nw"><b>Serving API</b></td><td>Expose gold to apps</td><td>FastAPI</td><td><span class="chip plan">Phase 4</span></td><td>n/a</td></tr>
     <tr><td class="nw"><b>Cache</b></td><td>Absorb read traffic</td><td>Next.js ISR <code>revalidate</code> (hourly)</td><td><span class="chip plan">Phase 4</span></td><td>API p95 too slow under load → Redis</td></tr>
     <tr><td class="nw"><b>Activation</b></td><td>Push insights to users</td><td>Resend email, Telegram bot</td><td><span class="chip plan">Phase 5</span></td><td>n/a</td></tr>
@@ -306,8 +306,11 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
     <tr><td class="nw"><code>metric_catalog</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>dbt seed (reference data)</td><td>one metric of one source: kind, bucket, meaning</td><td><code>(source, metric_name)</code></td><td>seeded each build</td><td>in git</td><td class="num">11</td></tr>
     <tr><td class="nw"><code>stg_items</code> · <code>stg_signals</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>dbt views</td><td>same as <code>items</code> · <code>signals</code>, cleaned and labelled with metric kind</td><td>same</td><td>view (always current)</td><td>n/a</td><td class="num">views</td></tr>
     <tr><td class="nw"><code>int_signal_deltas</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>dbt table (full rebuild)</td><td>item × metric × bucket, with change vs previous reading and per hour</td><td><code>(source, item_id, metric_name, captured_at)</code></td><td><code>dbt build</code> hourly at :40</td><td>derived</td><td class="num">4,858</td></tr>
-    <tr class="planned"><td class="nw"><code>topics</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Dimension (stable IDs)</td><td>one topic</td><td><code>id</code>, <code>slug</code></td><td>upsert</td><td>indefinite</td><td class="num">P3.2</td></tr>
-    <tr class="planned"><td class="nw"><code>topic_items</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Bridge table</td><td>topic × item</td><td><code>(topic_id, source, item_id)</code></td><td>rebuild each cycle</td><td>derived</td><td class="num">P3.2</td></tr>
+    <tr><td class="nw"><code>topic_aliases</code> · <code>stopwords</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>dbt seeds (curated reference data)</td><td>one alias → topic · one stopword</td><td><code>alias</code> (unique, tested)</td><td>seeded each build</td><td>in git</td><td class="num">80 · 229</td></tr>
+    <tr><td class="nw"><code>int_item_text</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>dbt table</td><td>one item: cleaned title, GTA names normalised, <code>is_english</code></td><td><code>(source, item_id)</code></td><td>rebuild hourly</td><td>derived</td><td class="num">items</td></tr>
+    <tr><td class="nw"><code>topics</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Dimension (stable IDs = slugs)</td><td>one topic</td><td><code>topic_slug</code></td><td>rebuild hourly</td><td>derived</td><td class="num">27</td></tr>
+    <tr><td class="nw"><code>topic_items</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Bridge table</td><td>topic × item (+ alias that matched)</td><td><code>(topic_slug, source, item_id)</code></td><td>rebuild hourly</td><td>derived</td><td class="num">671</td></tr>
+    <tr><td class="nw"><code>phrase_candidates</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Review list</td><td>2–3-word phrase in the last 24h, no alias yet, 3+ authors</td><td><code>phrase</code></td><td>rebuild hourly</td><td>derived</td><td class="num">151</td></tr>
     <tr class="planned"><td class="nw"><code>topic_scores</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Periodic snapshot fact</td><td>topic × hour</td><td><code>(topic_id, hour)</code></td><td>upsert</td><td>indefinite</td><td class="num">P3.3</td></tr>
     <tr class="planned"><td class="nw"><code>waitlist</code>, <code>alerts_sent</code></td><td class="nw"><i class="zone app"></i>App (OLTP)</td><td>Transactional</td><td>one signup · one alert per topic per day</td><td>unique email · unique <code>(topic_id, date)</code></td><td>insert</td><td>until unsubscribe</td><td class="num">P4–5</td></tr>
   </tbody>
@@ -391,10 +394,10 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
     <span class="n live">discover :00</span><span class="a">→</span><span class="n tbl">items</span><span class="a">→</span>
     <span class="n live">snapshot :05</span><span class="a">→</span><span class="n tbl">signals</span><span class="a">→</span>
     <span class="n live">dbt build: silver models</span><span class="a">→</span><span class="n live">dbt tests + freshness</span><span class="a">→</span>
-    <span class="n plan">topic extraction (Python)</span><span class="a">→</span><span class="n plan">dbt build: gold marts</span><span class="a">→</span>
+    <span class="n live">topics (dbt SQL)</span><span class="a">→</span><span class="n plan">dbt build: gold marts</span><span class="a">→</span>
     <span class="n plan">spike alerts</span>
   </div>
-  <p class="muted small" style="margin:12px 0 0">Implementation: one chained job after a successful snapshot: <code>dbt build --select tag:silver</code> → Python topic step → <code>dbt build --select tag:gold</code>, each step logged in <code>connector_runs</code>. APScheduler stays the orchestrator (dbt isn't a scheduler). If the graph grows (several sources feeding gold, backfills), that's the trigger to move to Dagster.</p>
+  <p class="muted small" style="margin:12px 0 0">Implementation: one <code>dbt build</code> at :40 (after all hourly ingestion jobs) runs seeds → silver → topics → tests, then <code>dbt source freshness</code>; logged in <code>connector_runs</code>. Topics turned out to be plain SQL, so there's no Python step. APScheduler stays the orchestrator (dbt isn't a scheduler). If the graph grows (several sources feeding gold, backfills), that's the trigger to move to Dagster.</p>
 </div>
 
 <!-- ============ 7. INCIDENT ============ -->
@@ -423,7 +426,7 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
     <tr><td><b>Sources + ingestion</b></td><td><span class="chip live">Live</span></td><td>Twitch waits for its category; uploads-playlist discovery (needs a channel list)</td><td class="nw">P1.5 · P2.1–P2.3</td></tr>
     <tr><td><i class="zone bronze"></i><b>Bronze</b></td><td><span class="chip live">Live</span></td><td>Done: 30-day purge runs daily</td><td class="nw">P1.4 + cleanup</td></tr>
     <tr><td><i class="zone silver"></i><b>Silver</b></td><td><span class="chip live">Live</span></td><td>Done: dbt silver models, tests, freshness (Nov 4)</td><td class="nw">P3.1</td></tr>
-    <tr><td><i class="zone gold"></i><b>Gold</b></td><td><span class="chip plan">Not started</span></td><td>Topics, scores, spam filter, top-20 review</td><td class="nw">P3.2 · P3.3</td></tr>
+    <tr><td><i class="zone gold"></i><b>Gold</b></td><td><span class="chip part">Partial</span></td><td>Done: topics (P3.2). Left: scores, spam filter, top-20 review (P3.3)</td><td class="nw">P3.2 · P3.3</td></tr>
     <tr><td><b>Serving</b></td><td><span class="chip plan">Not started</span></td><td>API, website, SEO, mobile</td><td class="nw">P4.1–P4.6</td></tr>
     <tr><td><b>Activation</b></td><td><span class="chip plan">Not started</span></td><td>Email digest, Telegram alerts, daily card</td><td class="nw">P5.1–P5.3</td></tr>
     <tr><td><b>Orchestration</b></td><td><span class="chip live">Live</span></td><td>Done: <code>transform.build</code> hourly at :40</td><td class="nw">P3.1</td></tr>
@@ -469,7 +472,7 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
   <div class="card"><h3>Me</h3><ol>
     <li><b>Bronze TTL</b>: daily <code>purge_raw</code> job + test.</li>
     <li><b>More sources first</b> (your call, Nov 4): News RSS, Bluesky; Reddit and Google Trends when approved.</li>
-    <li><b>dbt P3.1 ✓ live Nov 4</b>. Next: <b>P3.2 topics</b> (needs your language decision), then P3.3 scoring.</li>
+    <li><b>dbt P3.1 + P3.2 ✓ live Nov 4</b>: silver layer and keyword topics. Next: <b>P3.3 momentum scoring</b> + spam filter → top 20 for your review.</li>
     <li><b>Gold P3.2–3.3</b>: topics, momentum score, spam filter → top 20 for your review.</li>
   </ol></div>
   <div class="card"><h3>You</h3><ol>

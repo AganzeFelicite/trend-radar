@@ -1,0 +1,19 @@
+version: 2
+
+models:
+  - name: topics
+    description: Curated topics. Edit seeds/topic_aliases.csv to add, rename or extend one.
+    columns:
+      - name: topic_slug
+        data_tests: [unique, not_null]
+  - name: topic_items
+    description: Which items mention which topic.
+    columns:
+      - name: topic_slug
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('topics')
+                field: topic_slug
+  - name: phrase_candidates
+    description: Phrases trending in the last 24h that no alias covers. Review by uncovered_items desc, add good ones to seeds/topic_aliases.csv.

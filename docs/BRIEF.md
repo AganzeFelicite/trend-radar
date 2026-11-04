@@ -58,7 +58,7 @@ Every hour we collect new GTA 6 videos, clips and streams (plus daily Wikipedia 
 - **Backend:** FastAPI; SQLAlchemy 2 + Alembic.
 - **Worker:** one Python process, APScheduler (`max_instances=1` per job = job lock). `httpx` + `tenacity` + `pydantic` for connectors.
 - **Database:** PostgreSQL. No partitioning at launch; index `signals(item_id, captured_at)`. Raw API responses stored as `jsonb` in `raw_responses`, deleted after 30 days.
-- **Transformations:** dbt Core (dbt-postgres) for silver → gold: sources with freshness checks, staging / intermediate / mart models, dbt tests; `dbt build` run by the worker after each ingestion cycle. Topic extraction stays a Python step. *(Changed Nov 4: owner chose dbt over plain SQL views.)*
+- **Transformations:** dbt Core (dbt-postgres) for silver → gold: sources with freshness checks, staging / intermediate / mart models, dbt tests; `dbt build` run by the worker after each ingestion cycle. Keyword topics are plain SQL in dbt too (aliases + stopwords as seeds). *(Changed Nov 4: owner chose dbt over plain SQL views; topics English-only for phrase discovery, all languages for alias matching.)*
 - **Caching:** Next.js `revalidate` (data changes hourly). No Redis.
 - **Quota counting / alert dedupe:** Postgres (`connector_runs` sums; unique constraints).
 - **Email:** Resend HTTP API, sent from the worker, HTML via stdlib `string.Template`; HMAC-signed unsubscribe links.

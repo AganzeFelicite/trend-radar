@@ -114,8 +114,11 @@ Done when: hourly top topics look sensible to a human, with no obvious duplicate
   - [x] `transform.build` hourly at :40, logged in `connector_runs` (ok / partial / error); 2 pytest tests run the real dbt project on the test DB
   - Verified: in the worker container: `dbt build` 15/15 nodes ok, 4,858 delta rows; Safehouse video +10,049 views/h across the 5 h sleep gap
   - Verified:
-- [ ] **P3.2** Title cleaning + keyword topics (aliases + n-grams) → `topics`, `topic_items`
-  - [ ] Same topic keeps same ID hour to hour
+- [x] **P3.2** Title cleaning + keyword topics (aliases + n-grams) → `topics`, `topic_items`
+  - [x] Same topic keeps same ID hour to hour: ID = slug from `seeds/topic_aliases.csv` (by construction; slug format + alias uniqueness tested)
+  - [x] Language (owner, Nov 4): phrase discovery English-only (`var topic_discovery_languages`), alias matching on all languages
+  - [x] `phrase_candidates` review list (3+ authors, ranked by items in no topic yet); first curation pass added 2 topics + 15 aliases (coverage 38% → 42%)
+  - Verified: real data: 27 topics, 671 topic-item links, top topics Pre-load 128 · File size 124 · Xbox 99; dbt 26/26 in the worker; pytest 22 passed
   - Verified:
 - [ ] **P3.3** Momentum scoring + flags → `topic_scores`; spam/reupload filters; `docs/SCORING.md`
   - [ ] Owner reviews top 20 and approves (or triggers embeddings upgrade)
