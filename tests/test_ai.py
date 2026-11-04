@@ -47,7 +47,7 @@ def test_embed_strips_the_gta_name_writes_once_and_redoes_old_versions():
 
 def test_discover_registers_named_clusters_keeps_ids_stable_and_rejects_invented_merges():
     rows, emb = [], {}
-    for axis, word in ((10, "wanted"), (20, "detox"), (30, "pets")):
+    for axis, word in ((10, "wanted"), (20, "detox"), (30, "pets"), (40, "cops"), (50, "maps")):
         for k in range(6):  # 6 items from 6 channels per cluster
             rows.append((f"{word}{k}", f"{word}-ch{k}", f"{word} story {k}"))
             emb[f"{word}{k}"] = vec(axis, jitter=0.05, seed=k)
@@ -65,14 +65,18 @@ def test_discover_registers_named_clusters_keeps_ids_stable_and_rejects_invented
         by_word = {c[0].split()[0]: i for i, c in enumerate(clusters)}
         return [ai.Decision(cluster=by_word["wanted"], kind="topic", name="Wanted System 🚨", merge_into=None),
                 ai.Decision(cluster=by_word["detox"], kind="duplicate", name="x", merge_into="map"),
-                ai.Decision(cluster=by_word["pets"], kind="duplicate", name="Pets Poll", merge_into="invented")], 123
+                ai.Decision(cluster=by_word["pets"], kind="duplicate", name="Pets Poll", merge_into="invented"),
+                ai.Decision(cluster=by_word["cops"], kind="topic", name="Wanted system", merge_into=None),  # same subject
+                ai.Decision(cluster=by_word["maps"], kind="topic", name="MAP", merge_into=None)], 123  # existing name
 
     ai.discover(namer=namer)
     ai.discover(namer=namer)  # same clusters again: matched to the registry, no LLM call
 
     with Session(engine) as s:
         reg = {t.slug: (t.name, t.status, t.merged_into) for t in s.scalars(select(AiTopic))}
-    assert calls == [3]
+    assert calls == [5]
     assert reg["wanted-system"] == ("Wanted System", "active", None)  # emoji stripped from the name
     assert ("x", "merged", "map") in reg.values()
     assert reg["pets-poll"] == ("Pets Poll", "active", None)  # merge target doesn't exist: kept as a topic
+    assert reg["wanted-system-2"] == ("Wanted system", "merged", "wanted-system")  # same name in one run: merged
+    assert reg["map-2"] == ("MAP", "merged", "map")  # named like an existing topic: merged into it
