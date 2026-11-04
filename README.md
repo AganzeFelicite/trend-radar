@@ -41,6 +41,7 @@ scripts/radar.sh status    # containers, awake or not, last pipeline runs, curre
 scripts/radar.sh backup ~/Backups/trend-radar   # pg_dump to a folder outside Docker, keeps the newest 7
 scripts/radar.sh restore-test   # restore the newest backup into a throwaway DB (needs RADAR_BACKUP_DIR) or pass a file
 scripts/radar.sh brief     # build today's Daily Brief now and open it at http://localhost:3100/admin
+scripts/radar.sh studio ~/Desktop/radar.md   # the brief for your video AI: facts, what to research, scenes, rules
 scripts/radar.sh drafts    # AI-write today's drafts from the brief (Claude, a few cents; $4/month cap)
 scripts/radar.sh offtopic blue-texas on   # keep a meme/non-game topic out of the top 5 (off: undo; no args: list)
 scripts/radar.sh refresh   # run the hourly cycle now (embeddings, AI naming, dbt scores)

@@ -40,6 +40,21 @@ class VideoFact(BaseModel):
     times_subscribers: float  # views in 24h / channel subscribers
 
 
+class Lead(BaseModel):
+    """A research starting point: read it (and its comments), cite it, never show it in a video."""
+    title: str
+    url: str
+    by: str | None
+    metric: str
+
+
+class Evidence(BaseModel):
+    keywords: list[str] = []  # what people call the topic (alias matches, 7 days)
+    videos: list[Lead] = []
+    posts: list[Lead] = []
+    news: list[Lead] = []
+
+
 class Freshness(BaseModel):
     source: str
     last_success: datetime | None
@@ -58,6 +73,7 @@ class Brief(BaseModel):
     off_topic: list[TopicFact]
     freshness: list[Freshness]
     notes: list[str]
+    evidence: dict[str, Evidence] = {}  # topic slug -> research leads (briefs before Nov 4 v3 have none)
 
 
 def _fact(r: dict) -> TopicFact:
@@ -65,6 +81,19 @@ def _fact(r: dict) -> TopicFact:
     return TopicFact(slug=r["slug"], name=r["name"], rank=r["rank"], rank_6h_ago=r["rank_6h_ago"], score=r["score"],
                      share=r["attention"] or 0, growth=r["growth"], sources=r["sources"] or 0, items=r["items"] or 0,
                      channels=r["channels"] or 0)
+
+
+def _evidence(slug: str) -> Evidence:
+    page = api.topic(slug)  # same data as the public topic page
+    return Evidence(
+        keywords=[k["keyword"] for k in page["keywords"]],
+        videos=[Lead(title=v["title"], url=v["url"], by=v["channel_title"], metric=f"{int(v['views_24h']):,} views in 24h")
+                for v in page["videos"][:5]],
+        posts=[Lead(title=" ".join(p["title"].split())[:280], url=p["url"], by=p["author"],
+                    metric=f"{int(p['engagement_24h']):,} likes, reposts and replies in 24h") for p in page["posts"][:3]],
+        news=[Lead(title=n["title"], url=n["url"], by=n["outlet"], metric=f"seen {n['seen_at']:%b %d, %H:%M} UTC")
+              for n in page["news"][:3]],
+    )
 
 
 def _make_this_now(topics: list[TopicFact]) -> TopicFact | None:
@@ -98,14 +127,16 @@ def assemble(now: datetime | None = None) -> Brief:
     with engine.connect() as c:
         scores_at = c.scalar(text("select max(scored_at) from analytics.topic_scores"))
 
+    pick = _make_this_now(ranked)
     return Brief(
         date=now.date(), generated_at=now, scores_at=scores_at, window_hours=24, top5=top5, biggest_riser=riser,
-        make_this_now=_make_this_now(ranked),
+        make_this_now=pick,
         breakout_videos=[VideoFact(title=v["title"], channel=v["channel_title"], url=v["url"], views_24h=v["views_24h"],
                                    times_subscribers=round(v["per_1k_subs"] / 1000, 1))
                          for v in api.rising_videos(limit=3)["videos"]],
         off_topic=[_fact(r) for r in api.rows(api.TOPICS + " where s.is_off_topic order by s.score desc limit 3")],
         freshness=freshness, notes=notes,
+        evidence={t.slug: _evidence(t.slug) for t in top5 + [riser, pick] if t},
     )
 
 

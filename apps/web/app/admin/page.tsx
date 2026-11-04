@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { CopyButton } from "@/components/copy-button";
 import { Skeleton, card, fmt, label } from "@/components/ui";
 import { getAdminBrief, type Draft, type TopicFact, type Writing } from "@/lib/api";
 
@@ -165,6 +166,31 @@ async function DraftsView() {
   );
 }
 
+const button = "rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium hover:border-emerald-500 dark:border-neutral-700";
+
+async function StudioView() {
+  const row = await getAdminBrief();
+  if (!row) return null;
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className={label}>Video Studio brief · for your video AI</h2>
+        <div className="flex gap-2">
+          <CopyButton text={row.studio_prompt} className={button} />
+          <a href="/api/admin/studio-prompt?download=1" className={button}>Download .md</a>
+        </div>
+      </div>
+      <p className="text-sm text-neutral-500">
+        Paste this into your video AI. It holds the verified facts, what to research (the trending videos under each
+        topic, their comments, the posts and headlines), the breakout videos to study, the scene plan and the rules.
+      </p>
+      <pre className={`${card} max-h-[32rem] overflow-auto whitespace-pre-wrap p-4 font-mono text-xs leading-relaxed`}>
+        {row.studio_prompt}
+      </pre>
+    </section>
+  );
+}
+
 export default function AdminPage() {
   return (
     <div className="space-y-8 pt-4">
@@ -181,6 +207,9 @@ export default function AdminPage() {
       </Suspense>
       <Suspense fallback={<Skeleton rows={3} className="h-24" />}>
         <DraftsView />
+      </Suspense>
+      <Suspense fallback={<Skeleton rows={1} className="h-64" />}>
+        <StudioView />
       </Suspense>
     </div>
   );

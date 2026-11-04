@@ -271,6 +271,7 @@ Video Studio. Everything is approved by the owner, and every fact traces to the 
   8. **Ready-made prompts** for the Video Studio (research + production), filled with this package's content
 
   Export: `package.json` + `package.md` + data-card images, zipped. Delivery: download from /admin, plus `GET /api/content-packages/{date}` behind an admin-only token, so the Video Studio can fetch packages later.
+  - Nov 4 (owner asked for it early): item 8 built as the **Video Studio brief** (`trend_radar/studio.py`, template, no AI): verified facts with sources (F1…), research per topic (the trending videos under it to read with their comments, Bluesky posts, headlines, what people call it, questions to answer), breakout videos to study, the day's script, scene plan, rules verbatim. On `/admin` (Copy, Download .md), `GET /api/admin/studio-prompt`, `scripts/radar.sh studio [file]`. Daily Brief now carries research leads per topic (`evidence`). Sensitive-topic blocklist (`config.PACKAGE_BLOCKED_TOPICS`/`_WORDS`) applied: part of P9.8. Verified: `tests/test_studio.py`; real brief v3 printed and read.
   - [ ] One package exported end to end from an approved brief
   - [ ] Every number in the script traces to a `verified` fact (automated check)
   - [ ] Data-card images rendered with our own design only (checked)

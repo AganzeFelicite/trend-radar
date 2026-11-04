@@ -7,6 +7,7 @@ import time
 from collections import defaultdict, deque
 
 from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, field_validator
 from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import insert
@@ -116,13 +117,34 @@ def rising_videos(limit: int = Query(10, ge=1, le=10)):
 # --- admin (read-only for now). ponytail: no auth in the app: Caddy basic_auth guards /admin and /api/admin/* on the
 # server (P1.3); locally everything is bound to 127.0.0.1. Approve/send actions (P9.3) need it before they exist.
 
-@app.get("/api/admin/brief")
-def latest_brief():
+def _latest_brief() -> dict:
     found = rows("""select brief_date, version, status, created_at, json from daily_briefs
                     order by brief_date desc, version desc limit 1""")
     if not found:
         raise HTTPException(404, "no brief yet: run scripts/radar.sh brief")
-    b = found[0]
+    return found[0]
+
+
+def _studio_prompt(b: dict) -> str:
+    from trend_radar import studio
+    from trend_radar.brief import Brief
+
+    script = rows("""select text from drafts where brief_date = :d and brief_version = :v and kind = 'script_daily_radar'""",
+                  d=b["brief_date"], v=b["version"])
+    return studio.daily_radar(Brief.model_validate(b["json"]), script[0]["text"] if script else None, b["version"], b["status"])
+
+
+@app.get("/api/admin/studio-prompt", response_class=PlainTextResponse)
+def studio_prompt(download: bool = False):
+    """The Video Studio brief as Markdown (download=1: as a file)."""
+    b = _latest_brief()
+    headers = {"Content-Disposition": f'attachment; filename="radar-daily-{b["brief_date"]}.md"'} if download else None
+    return PlainTextResponse(_studio_prompt(b), media_type="text/markdown; charset=utf-8", headers=headers)
+
+
+@app.get("/api/admin/brief")
+def latest_brief():
+    b = _latest_brief()
     drafts = rows("""select kind, text, status, problems, created_at from drafts
                      where brief_date = :d and brief_version = :v order by kind""", d=b["brief_date"], v=b["version"])
     writing = rows("""select (select coalesce(sum(quota_used), 0) / 1e6 from connector_runs
@@ -130,7 +152,8 @@ def latest_brief():
                              r.status, r.error, r.started_at
                       from (select 1) one left join lateral (select * from connector_runs where source = 'writer'
                                                              order by id desc limit 1) r on true""")[0]
-    return b | {"drafts": drafts, "writing": writing | {"cap_usd": config.AI_WRITING_MONTHLY_CAP_USD}}
+    return b | {"drafts": drafts, "writing": writing | {"cap_usd": config.AI_WRITING_MONTHLY_CAP_USD},
+                "studio_prompt": _studio_prompt(b)}
 
 
 # --- waitlist ---

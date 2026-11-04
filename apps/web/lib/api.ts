@@ -83,5 +83,5 @@ export type Brief = {
 export type Draft = { kind: string; text: string; status: "draft" | "flagged"; problems: string | null; created_at: string };
 export type Writing = { month_usd: number; cap_usd: number; status: string | null; error: string | null; started_at: string | null };
 export const getAdminBrief = () =>
-  get<{ brief_date: string; version: number; status: string; created_at: string; json: Brief; drafts: Draft[]; writing: Writing }>(
+  get<{ brief_date: string; version: number; status: string; created_at: string; json: Brief; drafts: Draft[]; writing: Writing; studio_prompt: string }>(
     "/api/admin/brief");

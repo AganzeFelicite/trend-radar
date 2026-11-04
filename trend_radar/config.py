@@ -80,3 +80,7 @@ AI_WRITING_MONTHLY_CAP_USD = 4.00  # owner, Nov 4. Checked before every call; wr
 # tokens are billed as output. Update both if AI_MODEL changes.
 AI_PRICE_PER_MTOK_IN = 0.10
 AI_PRICE_PER_MTOK_OUT = 0.50
+
+# --- Content packages (P9.5, P9.8): topics that must never reach a video package. They may still rank on the site.
+PACKAGE_BLOCKED_TOPICS = {"mark-tilbury-savings"}  # owner + advisor, Nov 4
+PACKAGE_BLOCKED_WORDS = r"saving|invest|money|crypto|stock|financ|loan|health|medic|doctor|diet|legal|lawyer|lawsuit"

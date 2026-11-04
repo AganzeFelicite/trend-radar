@@ -11,6 +11,7 @@
 #   refresh             run the hourly cycle now: embed titles, AI topic naming (Claude, ~1-2 cents if new clusters), dbt scores
 #   brief               build today's Daily Brief now (verified data, no AI) and open it at /admin
 #   drafts              AI-write today's drafts from the latest brief now (Claude, a few cents; $4/month cap)
+#   studio [file]       the Video Studio brief (facts, what to research, scenes, rules) for your video AI
 #   topics              what the AI decided for each cluster (review names, merges, noise, spam)
 #   keys                which .env keys are set (shows length only, never the value)
 #   test                Python tests + website typecheck, lint and build
@@ -87,6 +88,13 @@ for n in b["notes"]: print("  ! " + n)'
              from connector_runs where source = 'writer' order by id desc limit 1"
     open -a Arc "$SITE/admin"
     ;;
+  studio)
+    if [ -n "${2:-}" ]; then
+      curl -sf localhost:8000/api/admin/studio-prompt -o "$2" && echo "Saved to $2"
+    else
+      curl -sf localhost:8000/api/admin/studio-prompt
+    fi
+    ;;
   topics)
     psql -c "select slug, name, status, merged_into, items_count as items, left(examples->>0, 60) as example
              from ai_topics order by status, items_count desc"
@@ -141,5 +149,5 @@ for n in b["notes"]: print("  ! " + n)'
   logs) docker compose logs -f --tail 50 "${2:-worker}" ;;
   open) open -a Arc "$SITE" ;;
   down) docker compose down; pkill -f "$AWAKE" || true ;;
-  *) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//' ;;
 esac
