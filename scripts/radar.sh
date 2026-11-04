@@ -7,6 +7,7 @@
 #   backup <folder>     pg_dump (compressed) into <folder> (or $RADAR_BACKUP_DIR); keeps the newest 7
 #   restore-test [file] restore a dump (default: newest backup) into a throwaway database, compare row counts
 #   offtopic [slug on|off]  flag a meme/non-game topic out of the top 5 (no args: list flags)
+#   cycle               collect from every source now, then score; prints each step, then status
 #   refresh             run the hourly cycle now: embed titles, AI topic naming (Claude, ~1-2 cents if new clusters), dbt scores
 #   topics              what the AI decided for each cluster (review names, merges, noise, spam)
 #   keys                which .env keys are set (shows length only, never the value)
@@ -45,6 +46,23 @@ import json, sys
 for t in json.load(sys.stdin)["topics"]:
     print("{:>2}  {:5.1f}  {}{}".format(t["rank"], t["score"], t["name"], "  (AI)" if t["origin"] == "ai" else ""))' \
       || echo "API not reachable: run scripts/radar.sh up"
+    ;;
+  cycle)
+    # One full hour now, step by step: collect from every source, then embed/AI/dbt. Same jobs the scheduler runs.
+    docker compose exec -T worker python -c '
+import time
+from trend_radar.connectors import bluesky, rss, twitch, youtube
+from trend_radar.scheduler import transform_cycle
+for job in (youtube.snapshot, twitch.collect, rss.collect, bluesky.collect, transform_cycle):
+    name, t = job.__module__.rsplit(".", 1)[-1] + "." + job.__name__, time.monotonic()
+    print("->", name, "...", flush=True)
+    try:
+        job()
+        print("   done in {:.0f}s".format(time.monotonic() - t), flush=True)
+    except Exception as e:  # recorded in connector_runs too; keep going so one source cannot block the rest
+        print("   FAILED:", type(e).__name__, str(e)[:120], flush=True)
+'
+    "$0" status
     ;;
   refresh)
     docker compose exec -T worker python -c "from trend_radar.scheduler import transform_cycle; transform_cycle()"
@@ -105,5 +123,5 @@ for t in json.load(sys.stdin)["topics"]:
   logs) docker compose logs -f --tail 50 "${2:-worker}" ;;
   open) open -a Arc "$SITE" ;;
   down) docker compose down; pkill -f "$AWAKE" || true ;;
-  *) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//' ;;
 esac
