@@ -4,6 +4,7 @@
 --   repost: the same cleaned text (20+ chars) again from the same channel or author; the earliest copy counts.
 --   reupload: a YouTube title an earlier video from another channel already used; the earliest counts.
 --     Not applied to Bluesky: different people posting the same link card is genuine sharing.
+--   ai_spam: nearest to a cluster Claude marked as spam (int_semantic_matches, kind = spam).
 -- ponytail: thresholds read off Nov 4 data (23 of 91 videos over 50k flagged); retune on release week (P7.3).
 with latest as (
     select distinct on (item_id, metric_name) item_id, metric_name, metric_value
@@ -37,5 +38,7 @@ select
         when views >= 50000 and comments < views / 20000.0 then 'low_engagement'
         when length(clean_text) >= 20 and copy_in_channel > 1 then 'repost'
         when length(clean_text) >= 20 and source = 'youtube' and first_channel is distinct from channel_id then 'reupload'
+        when exists (select 1 from {{ ref('int_semantic_matches') }} m
+                     where m.source = copies.source and m.item_id = copies.item_id and m.kind = 'spam') then 'ai_spam'
     end as spam_reason
 from copies

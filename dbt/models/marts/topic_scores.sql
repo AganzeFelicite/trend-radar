@@ -6,11 +6,24 @@
 --   attention = weighted average of the "now" shares (seeds/source_weights.csv) over sources live in the window.
 --   growth = like-for-like now vs prev, over sources we were already collecting when the prev window opened
 --   (first ok run in connector_runs); 1 until such a source exists, so day one isn't all "4x growth".
---   score = attention x growth (growth capped to 0.25..4): momentum = size x speed.
+--   momentum = attention x growth (growth capped to 0.25..4): size x speed.
+--   score = momentum on a 0-100 scale, Google-Trends style: 100 = the strongest topic-hour of the last 7 days that
+--   had 5+ items (one lone old article = 100% share of an empty hour must not set the scale); capped at 100.
 {% set w = var('momentum_window_hours') %}
 {% set b = var('burst_window_hours') %}
-with spine as (
-    select generate_series(date_trunc('hour', now()) - interval '7 days', date_trunc('hour', now()), interval '1 hour') as scored_at
+with collecting as (  -- when each source started: windows before this hold only back-dated first readings
+    select source, min(started_at) as since
+    from {{ source('warehouse', 'connector_runs') }}
+    where status in ('ok', 'partial')
+    group by 1
+),
+
+spine as (  -- hours since collection started, at most 7 days
+    select generate_series(
+        greatest(date_trunc('hour', now()) - interval '7 days',
+                 (select date_trunc('hour', min(since)) from collecting
+                  where source in (select source from {{ ref('source_weights') }} where weight > 0))),
+        date_trunc('hour', now()), interval '1 hour') as scored_at
 ),
 
 -- ponytail: range join (each activity row x every hour whose windows contain it); fine to a few million rows.
@@ -23,13 +36,6 @@ win as (
     join {{ ref('int_item_activity') }} a
       on a.hour > s.scored_at - interval '{{ 2 * w }} hours' and a.hour <= s.scored_at
     where a.activity > 0  -- items = items that gained attention in the window
-),
-
-collecting as (  -- when each source started: windows before this hold only back-dated first readings
-    select source, min(started_at) as since
-    from {{ source('warehouse', 'connector_runs') }}
-    where status in ('ok', 'partial')
-    group by 1
 ),
 
 totals as (  -- per source and hour: all GTA activity (topic or not) = the source's baseline
@@ -108,8 +114,10 @@ scored as (
 select
     scored_at,
     topic_slug,
-    coalesce(attention, 0) * growth as score,
+    round(least(100, 100 * coalesce(attention, 0) * growth
+                / nullif(max(coalesce(attention, 0) * growth) filter (where items >= 5) over (), 0))::numeric, 1) as score,
     rank() over (partition by scored_at order by coalesce(attention, 0) * growth desc) as rank,
+    coalesce(attention, 0) * growth as momentum,
     coalesce(attention, 0) as attention,
     prev_attention,
     growth,

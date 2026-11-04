@@ -225,6 +225,26 @@ curl -s "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
 <h2>C · Costs money: needed for the server</h2>
 <p class="section-note">These unblock Phase 1 (P1.1–P1.3). About €5/month plus about $10/year.</p>
 
+<details class="key" data-id="anthropic" open>
+  <summary>
+    <input type="checkbox" aria-label="Anthropic key done">
+    <span class="title">AI key: Anthropic (Claude Haiku 5.5)</span>
+    <span class="badges"><span class="badge paid">~$2–6/mo</span><span class="badge time">5 min</span></span>
+    <span class="why">Names the new topic clusters the embeddings find, merges duplicates, flags spam. Added Nov 4 (your call: Haiku). Until it's set, clusters wait and nothing else stops.</span>
+  </summary>
+  <div class="body">
+    <ol>
+      <li>Sign in at <a href="https://platform.claude.com" target="_blank" rel="noopener">platform.claude.com</a> → <b>Billing</b>: add a card and buy a small amount of credit (the minimum is plenty for months).</li>
+      <li><b>Billing → Limits</b>: set a <b>monthly spend limit</b> (e.g. $10). The worker also caps itself at one call per hour.</li>
+      <li><b>API keys → Create key</b>, name it <code>trend-radar-worker</code>.</li>
+      <li>Paste it into <code>.env</code> as <code>ANTHROPIC_API_KEY=</code>. Never in chat.</li>
+      <li>Tell me "key added": I check it by length only, restart the worker, and the 8 waiting clusters get named within the hour.</li>
+    </ol>
+    <div class="cmd"><span class="lbl">Test</span><button type="button">Copy</button><pre>set -a; . ./.env; set +a; curl -s https://api.anthropic.com/v1/models -H "x-api-key: $ANTHROPIC_API_KEY" -H "anthropic-version: 2023-06-01" | head -c 120</pre></div>
+    <p class="note">Only public titles are sent (never your email or any key). Embeddings run on the server itself and cost nothing.</p>
+  </div>
+</details>
+
 <details class="key" data-id="vps">
   <summary>
     <input type="checkbox" aria-label="VPS done">

@@ -161,7 +161,7 @@
 <body>
 <main>
 
-<p class="muted small">Trend Radar · data architecture · snapshot Tue Nov 3, 2026, 16:45 UTC · updated Nov 4: News RSS, Bluesky, bronze TTL, dbt silver layer, topics + momentum scores live</p>
+<p class="muted small">Trend Radar · data architecture · snapshot Tue Nov 3, 2026, 16:45 UTC · updated Nov 4: News RSS, Bluesky, bronze TTL, dbt silver layer, topics + momentum scores, AI topics (embeddings + Claude) live</p>
 <h1>Data architecture: where we stand</h1>
 <p class="lede">An hourly <b>batch pipeline</b> on a <b>medallion architecture</b>. Connectors <b>extract</b> from three upstream APIs,
 <b>load</b> the raw payloads into a <b>bronze</b> zone and conformed records into <b>silver</b>, all in one Postgres warehouse.
@@ -223,6 +223,7 @@
     <div class="stage z-gold">
       <div class="sh"><span class="num">⑤</span><div><div class="term">Gold: marts</div><div class="tool">dbt models (SQL only) · <code>topics</code>, <code>topic_items</code>, <code>phrase_candidates</code>, <code>topic_scores</code>, <code>rising_items</code> live · formula in <code>docs/SCORING.md</code></div></div><span class="chip part">Live · top-20 review pending</span></div>
       <ul><li><b>Entity resolution</b>: clean titles, group videos into topics via keyword aliases + n-grams, with stable topic IDs.</li>
+          <li><b>AI enrichment</b> (Python step before dbt): multilingual <b>embeddings</b> (MiniLM, local ONNX) in <b>pgvector</b> → items with no alias join the nearest topic <b>centroid</b> (dbt) → <b>HDBSCAN</b> clusters the rest → a <b>cluster registry</b> keeps IDs stable (cosine ≥ 0.8) → <b>Claude Haiku 5.5</b> names new clusters, merges duplicates, flags spam.</li>
           <li><b>Feature engineering</b>: activity per item per hour (event time) → each topic's share of each source's activity (own baseline) → weighted across sources → growth vs previous 24h, like-for-like → score = attention × growth, flags NEW / SPIKING / CONFIRMED.</li>
           <li><b>Outlier filtering</b> (<code>int_item_quality</code>): spam (50k+ views, under 1 comment per 20k), reposts, reuploads; flagged items never reach the scores.</li></ul>
     </div>
@@ -311,6 +312,9 @@
     <tr><td class="nw"><code>topics</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Dimension (stable IDs = slugs)</td><td>one topic</td><td><code>topic_slug</code></td><td>rebuild hourly</td><td>derived</td><td class="num">27</td></tr>
     <tr><td class="nw"><code>topic_items</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Bridge table</td><td>topic × item (+ alias that matched)</td><td><code>(topic_slug, source, item_id)</code></td><td>rebuild hourly</td><td>derived</td><td class="num">671</td></tr>
     <tr><td class="nw"><code>phrase_candidates</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Review list</td><td>2–3-word phrase in the last 24h, no alias yet, 3+ authors</td><td><code>phrase</code></td><td>rebuild hourly</td><td>derived</td><td class="num">151</td></tr>
+    <tr><td class="nw"><code>item_embeddings</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>Feature table (vector)</td><td>one item: 384-dim title embedding + model/version</td><td><code>(source, item_id)</code>, FK → items</td><td>insert new, re-embed on version change</td><td>indefinite</td><td class="num">1,013</td></tr>
+    <tr><td class="nw"><code>ai_topics</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>Registry (reference data written by the AI step)</td><td>one cluster ever seen: slug, name, status, centroid</td><td><code>slug</code></td><td>insert new, touch on re-match</td><td>indefinite</td><td class="num">0 (key pending)</td></tr>
+    <tr><td class="nw"><code>int_topic_centroids</code> · <code>int_semantic_matches</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>dbt tables</td><td>one centroid · item × topic matched by similarity</td><td>—</td><td>rebuild hourly</td><td>derived</td><td class="num">—</td></tr>
     <tr><td class="nw"><code>source_weights</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>dbt seed (config)</td><td>one source: weight in the topic score</td><td><code>source</code> (every scored source must have one, tested)</td><td>seeded each build</td><td>in git</td><td class="num">5</td></tr>
     <tr><td class="nw"><code>int_item_quality</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>dbt table</td><td>one item: spam reason or null</td><td><code>(source, item_id)</code></td><td>rebuild hourly</td><td>derived</td><td class="num">items</td></tr>
     <tr><td class="nw"><code>int_item_activity</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>dbt table</td><td>item × hour: attention gained (views, engagement, viewers, 1 per headline)</td><td><code>(source, item_id, hour)</code></td><td>rebuild hourly</td><td>derived</td><td class="num">2,386</td></tr>
@@ -476,7 +480,7 @@
   <div class="card"><h3>Me</h3><ol>
     <li><b>Bronze TTL</b>: daily <code>purge_raw</code> job + test.</li>
     <li><b>More sources first</b> (your call, Nov 4): News RSS, Bluesky; Reddit and Google Trends when approved.</li>
-    <li><b>dbt P3.1–P3.3 ✓ live Nov 4</b>: silver layer, keyword topics, momentum scores + spam filter. Next: your <b>top-20 review</b>, then Phase 4 (API + website).</li>
+    <li><b>dbt P3.1–P3.3 ✓ live Nov 4</b>: silver layer, keyword topics, momentum scores (0–100) + spam filter, AI topics. Next: Anthropic key → clusters named → your <b>top-20 review</b>, then Phase 4 (API + website).</li>
   </ol></div>
   <div class="card"><h3>You</h3><ol>
     <li class="urgent">Plug in the charger now (battery 3–4%) and stop the Mac sleeping on power.</li>

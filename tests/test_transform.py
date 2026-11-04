@@ -119,3 +119,29 @@ def test_scores_rank_size_times_growth_flag_spikes_and_new_topics_and_drop_spam(
     assert abs(p.growth - 1) < 0.05 and not p.is_spiking            # same share both days
     assert latest["trailer-3"].is_new and not latest["preload"].is_new
     assert map_3h_ago == 1  # that hour's prev window opened before collection started: no growth claimed
+
+
+def test_semantic_matching_fills_alias_gaps_with_curated_and_ai_topics():
+    from tests.test_ai import add_items, vec
+    from trend_radar.db import AiTopic
+
+    rows = [(f"m{i}", f"c{i}", f"GTA 6 map tour part {i}") for i in range(3)]        # alias → map (centroid)
+    rows += [("pt", "c7", "O mapa do GTA 6 é enorme"),                                # no alias, near map
+             ("ws", "c8", "How the wanted system works"),                             # no alias, near an AI topic
+             ("gen", "c9", "This is my GTA 6")]                                       # near nothing
+    emb = {f"m{i}": vec(5, 0.05, i) for i in range(3)} | {"pt": vec(5, 0.05, 9), "ws": vec(40), "gen": vec(80)}
+    add_items(rows, emb)
+    with Session(engine) as s:
+        s.add(AiTopic(slug="wanted-system", name="Wanted System", status="active", centroid=vec(40)))
+        s.add(AiTopic(slug="clip-farms", name="Clip farms", status="spam", centroid=vec(80)))
+        s.commit()
+
+    transform.build()
+
+    with engine.connect() as c:
+        got = {r.item_id: (r.topic_slug, r.match_type) for r in c.execute(text("select * from analytics.topic_items"))}
+        topics = dict(c.execute(text("select topic_slug, origin from analytics.topics")).all())
+        spam = c.execute(text("select spam_reason from analytics.int_item_quality where item_id = 'gen'")).scalar()
+    assert got["pt"] == ("map", "semantic") and got["m0"] == ("map", "alias")
+    assert got["ws"] == ("wanted-system", "semantic") and topics["wanted-system"] == "ai"
+    assert "gen" not in got and spam == "ai_spam"  # nearest to a spam cluster: flagged, no topic

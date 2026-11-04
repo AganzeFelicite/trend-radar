@@ -1,11 +1,11 @@
--- Grain: one item in one topic (an item can belong to several). matched_alias = the longest alias that hit.
--- ponytail: regex match of every item x every alias, full rebuild; restrict to recent items when it gets slow.
-select distinct on (a.topic_slug, t.source, t.item_id)
-    a.topic_slug,
-    t.source,
-    t.item_id,
-    a.alias as matched_alias,
-    t.seen_at
-from {{ ref('int_item_text') }} t
-join {{ ref('topic_aliases') }} a on t.clean_text ~ ('\m' || a.alias || '\M')
-order by a.topic_slug, t.source, t.item_id, length(a.alias) desc
+-- Grain: one item in one topic. match_type: alias (keyword, curated) or semantic (embedding nearest to the topic).
+-- An item matched by alias is never also matched semantically, so semantic only fills gaps.
+select topic_slug, source, item_id, 'alias' as match_type, matched_alias, null::float as similarity, seen_at
+from {{ ref('int_alias_matches') }}
+
+union all
+
+select s.topic_slug, s.source, s.item_id, 'semantic', null, s.similarity, t.seen_at
+from {{ ref('int_semantic_matches') }} s
+join {{ ref('int_item_text') }} t on t.source = s.source and t.item_id = s.item_id
+where s.kind = 'topic'

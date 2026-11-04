@@ -3,10 +3,14 @@
 How a topic gets its momentum score. All of it is SQL in dbt (`dbt/models/`), rebuilt every hour at :40.
 
 ```
-signals ─► int_signal_deltas ─► int_item_activity ─┬─► topic_scores   (gold, topic × hour, last 7 days)
-items ───► int_item_text ─────► int_item_quality ──┘    rising_items   (gold, item, last 24h)
-                                topic_items ────────┘
+items ──► ai.embed ─► item_embeddings ─┐            ai.discover ─► ai_topics (registry, Claude names)
+items ──► int_item_text ─► int_alias_matches ─┬─► int_topic_centroids ─► int_semantic_matches
+                                              └──────────────┬────────────────────┘
+signals ─► int_signal_deltas ─► int_item_activity ─┐     topic_items (alias ∪ semantic)
+                  int_item_quality (spam) ─────────┴─► topic_scores (topic × hour, 7 days) · rising_items
 ```
+
+Every hour at :40: `ai.embed` → `ai.discover` → `dbt build`. An AI failure is logged and never blocks the build.
 
 ## 1. Item activity (`int_item_activity`, grain: item × hour)
 
@@ -66,11 +70,18 @@ growth = (attention_now + 0.005) / (attention_prev + 0.005), capped to 0.25 … 
   `connector_runs`), like same-store sales. Until then growth = 1, so day one isn't "everything grew 4×".
 - `+ 0.005` (half a share point) stops a topic going from 0.01% to 0.1% from reading as 10× growth.
 
-## 5. Score and rank
+## 5. Momentum, score (0–100) and rank
 
 ```
-score = attention × growth          (momentum = size × speed)
+momentum = attention × growth                        (size × speed; max 4 = 100% share × 4× growth)
+score    = 100 × momentum / highest momentum of any topic in any hour of the last 7 days
 ```
+
+**Score is out of 100**, Google-Trends style: 100 = the strongest topic-hour of the past week (among topic-hours
+with 5+ items, so one lone article in an empty hour can't set the scale; capped at 100), 50 = half that momentum.
+Scored hours start when collection started. It's relative, so it compares topics and hours with each other; the raw `momentum`, `attention`
+(share of the conversation) and `growth` (× vs yesterday) stay in the table for thresholds and the topic page.
+The site can show "Pre-load · 100 · 13.6% of the conversation · ×1.8 vs yesterday".
 
 A big topic that's growing wins; a big steady topic still ranks; a small topic needs real growth to climb.
 `rank` = position within that hour. The latest ranking is `where scored_at = max(scored_at)`.
@@ -93,17 +104,42 @@ A big topic that's growing wins; a big steady topic still ranks; a small topic n
   1,000 count as 1,000). 50k views on a 2k channel is a breakout; on a 5M channel it's a normal day.
 - Topic attention uses raw activity (an audience is an audience). Channel size only changes this ranking.
 
+## 8. AI topics (embeddings + Claude)
+
+Owner's call at the first top-20 review (Nov 4): keywords alone miss too much (21% of YouTube views were in a
+topic) and don't cross languages. Hybrid, so the curated topics stay exactly as they are:
+
+1. **Embed** (`ai.embed`, local, free): one 384-dim vector per title with `paraphrase-multilingual-MiniLM-L12-v2`
+   (50+ languages, ONNX via fastembed, baked into the image). "GTA 6" and filler hashtags are stripped first:
+   every item says GTA 6, so it dominated the vectors. `model` holds model + cleaning version; changing either
+   re-embeds everything.
+2. **Match** (dbt, `int_semantic_matches`): an item no alias matched joins its nearest topic centroid if cosine
+   ≥ 0.72, plus other topics within 0.03 of it (facets of one story). Curated centroids = mean of their
+   alias-matched items. Calibrated Nov 4: at 0.72, ~90% agree with alias matches. `topic_items.match_type`
+   says which way an item got in.
+3. **Discover** (`ai.discover`): HDBSCAN over the last 48h of items no alias covers; a cluster needs 5+ items
+   from 3+ channels. Each cluster is compared with the `ai_topics` registry: cosine ≥ 0.8 to a known centroid →
+   same topic, same slug, **no LLM call** (stable IDs). Only unseen clusters go to Claude.
+4. **Name** (Claude Haiku 5.5, one call per hour, ≤ 25 clusters, structured JSON): each cluster becomes
+   `topic` (new AI topic), `duplicate` (merged into an existing slug; its centroid then pulls similar items into
+   that topic), `noise` (generic chatter; attracts generic posts so they stay untopiced) or `spam` (items nearest
+   to it get `ai_spam` in `int_item_quality` and leave the scores). Titles are sent as untrusted data;
+   names are sanitised (letters, digits, basic punctuation, 40 chars). Tokens used → `connector_runs.quota_used`.
+
+`topics` = curated (seed) ∪ AI (`ai_topics`, status `active`). Rename, merge or hide AI topics: update the row
+(P6.1 admin page later).
+
 ## Worked example (the `test_scores_…` test)
 
 YouTube only. Prev 24h: preload 10k views, map 1k, other 9k → shares 50%, 5%, 45%.
 Now: preload 10k, map 9k (all in the last 3h, 3 channels), other 1k → 50%, 45%, 5%.
 
-- map: attention 0.45, growth (0.455 / 0.055 = 8.3) → capped 4, **score 1.8**, `SPIKING` (100% of the last 3h).
-- preload: attention 0.50, growth 1, **score 0.5**.
+- map: attention 0.45, growth (0.455 / 0.055 = 8.3) → capped 4, **momentum 1.8**, `SPIKING` (100% of the last 3h).
+- preload: attention 0.50, growth 1, **momentum 0.5**. If map's 1.8 is the week's peak: map scores 100, preload 28.
 - A 100k-view video with 1 comment in the map topic is dropped as `low_engagement`.
 
 ## Tuning (P7.3)
 
 Thresholds were read off Nov 3–4 data and are guesses until release week: the spam ratio, the growth cap
-and prior, the spike ratio and floor, the source weights. Change them in the seed / SQL; the next hourly
+and prior, the spike ratio and floor, the source weights, the semantic threshold (0.72) and tie margin (0.03). Change them in the seed / SQL; the next hourly
 build applies them and restates the last 7 days.

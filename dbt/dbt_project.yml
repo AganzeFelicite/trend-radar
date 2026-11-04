@@ -22,3 +22,7 @@ vars:
   # Scoring windows (docs/SCORING.md): momentum compares the last N hours with the N before; burst = last M hours.
   momentum_window_hours: 24
   burst_window_hours: 3
+  # Semantic topic matching (docs/SCORING.md § AI topics): an item joins its nearest topic if the cosine similarity
+  # is at least this, plus other topics within the tie margin of it (facets of one story).
+  semantic_min_similarity: 0.72
+  semantic_tie_margin: 0.03

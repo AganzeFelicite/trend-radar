@@ -122,6 +122,7 @@ Done when: hourly top topics look sensible to a human, with no obvious duplicate
   - Verified:
 - [x] **P3.3** Momentum scoring + flags → `topic_scores`; spam/reupload filters; `docs/SCORING.md`
   - [ ] Owner reviews top 20 and approves (or triggers embeddings upgrade)
+    - Nov 4: owner triggered the AI upgrade and asked for a defined scale. Built: `ai.embed` (multilingual MiniLM, pgvector), `ai.discover` (HDBSCAN + `ai_topics` registry + Claude Haiku naming), dbt `int_topic_centroids`, `int_semantic_matches`, `topics` = curated ∪ AI, `ai_spam` flag, score 0–100. Waiting on `ANTHROPIC_API_KEY` (8 clusters queued), then the top-20 review again.
   - Verified: dbt models `int_item_quality` (spam), `int_item_activity` (item × hour, event time), `topic_scores` (topic × hour, 7 days), `rising_items`; seed `source_weights`. Real data Nov 4 01:46: 35/35 dbt nodes, 30 items flagged (23 low-engagement videos, 7 reposts), top 5 = preload, xbox, release-date, file-size, map; growth = 1 until 48h after each source started (like-for-like guard). pytest `test_scores_rank_size_times_growth_flag_spikes_and_new_topics_and_drop_spam` (ranking, capped growth, SPIKING, NEW, spam drop, coverage guard); 23 passed.
 
 ## Phase 4: The product (Nov 9–11)

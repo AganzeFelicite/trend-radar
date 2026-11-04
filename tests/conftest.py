@@ -10,6 +10,8 @@ from sqlalchemy import create_engine, text  # noqa: E402
 with create_engine(ADMIN_URL, isolation_level="AUTOCOMMIT").connect() as c:
     if not c.scalar(text("select 1 from pg_database where datname = 'trend_radar_test'")):
         c.execute(text("create database trend_radar_test"))
+with create_engine(ADMIN_URL.rsplit("/", 1)[0] + "/trend_radar_test", isolation_level="AUTOCOMMIT").connect() as c:
+    c.execute(text("create extension if not exists vector"))  # alembic does this in real databases
 
 import time  # noqa: E402
 

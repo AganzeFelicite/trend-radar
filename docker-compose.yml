@@ -29,6 +29,7 @@ services:
       WIKIMEDIA_USER_AGENT: ${WIKIMEDIA_USER_AGENT:-}
       BLUESKY_HANDLE: ${BLUESKY_HANDLE:-}
       BLUESKY_APP_PASSWORD: ${BLUESKY_APP_PASSWORD:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy

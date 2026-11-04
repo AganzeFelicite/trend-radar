@@ -12,6 +12,7 @@ from sqlalchemy import (
     create_engine,
     func,
 )
+from pgvector.sqlalchemy import Vector
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
@@ -80,6 +81,40 @@ class ConnectorRun(Base):
     quota_used: Mapped[int] = mapped_column(default=0)
     error: Mapped[str | None] = mapped_column(Text)
     __table_args__ = (Index("ix_connector_runs_source_started_at", "source", "started_at"),)
+
+
+EMBEDDING_DIM = 384  # paraphrase-multilingual-MiniLM-L12-v2
+
+
+class ItemEmbedding(Base):
+    """One multilingual sentence embedding per item title. Written once (titles rarely change); rebuilt if the model changes."""
+
+    __tablename__ = "item_embeddings"
+    source: Mapped[str] = mapped_column(String(32), primary_key=True)
+    item_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    model: Mapped[str] = mapped_column(String(96))
+    embedding = mapped_column(Vector(EMBEDDING_DIM), nullable=False)
+    embedded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    __table_args__ = (
+        ForeignKeyConstraint(["source", "item_id"], ["items.source", "items.item_id"], ondelete="CASCADE"),
+    )
+
+
+class AiTopic(Base):
+    """Registry of clusters the AI step has seen, so topic IDs stay stable: a new cluster whose centroid is within
+    cosine 0.8 of a registered one reuses it, with no new LLM call. status: active (a topic of its own) · merged (same
+    subject as merged_into) · noise (no shared subject) · spam (its items are left out of scoring)."""
+
+    __tablename__ = "ai_topics"
+    slug: Mapped[str] = mapped_column(String(64), primary_key=True)
+    name: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(16))
+    merged_into: Mapped[str | None] = mapped_column(String(64))
+    centroid = mapped_column(Vector(EMBEDDING_DIM), nullable=False)
+    items_count: Mapped[int] = mapped_column(default=0)
+    examples: Mapped[list] = mapped_column(JSONB, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 @contextmanager

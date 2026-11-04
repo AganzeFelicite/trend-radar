@@ -63,3 +63,13 @@ BLUESKY_API = "https://bsky.social/xrpc/"  # entryway for accounts hosted on bsk
 # (query, sort): "latest" = volume, "top" = what's taking off. Each runs over the last 24h.
 BLUESKY_SEARCHES = [("GTA 6", "latest"), ("GTA 6", "top")]
 BLUESKY_MAX_PAGES = 5  # x100 posts per search
+
+# --- AI layer (docs/SCORING.md § AI topics) ---
+# Embeddings run locally on CPU (free). The model is baked into the Docker image at MODEL_CACHE_DIR.
+EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"  # 50+ languages, 384 dims
+MODEL_CACHE_DIR = os.environ.get("MODEL_CACHE_DIR") or None  # None = fastembed's default cache
+# Claude names new clusters, merges duplicates, flags spam. Owner chose Haiku 5.5 (Nov 4): ~$2-6/month.
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+AI_MODEL = "claude-haiku-5-5"
+AI_MAX_CLUSTERS_PER_RUN = 25  # cost cap: one LLM call per hour with at most this many clusters
+

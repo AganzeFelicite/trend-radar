@@ -2,12 +2,12 @@ version: 2
 
 models:
   - name: topics
-    description: Curated topics. Edit seeds/topic_aliases.csv to add, rename or extend one.
+    description: Curated topics (seeds/topic_aliases.csv) plus AI topics (ai_topics, status active).
     columns:
       - name: topic_slug
         data_tests: [unique, not_null]
   - name: topic_items
-    description: Which items mention which topic.
+    description: Which items belong to which topic, by keyword alias or by embedding similarity (match_type).
     columns:
       - name: topic_slug
         data_tests:
