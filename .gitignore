@@ -32,3 +32,5 @@ npm-debug.log*
 .DS_Store
 .idea/
 .vscode/
+dbt/target/
+dbt/logs/

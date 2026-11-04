@@ -161,7 +161,7 @@
 <body>
 <main>
 
-<p class="muted small">Trend Radar · data architecture · snapshot Tue Nov 3, 2026, 16:45 UTC · updated Nov 4: News RSS, Bluesky + bronze TTL live</p>
+<p class="muted small">Trend Radar · data architecture · snapshot Tue Nov 3, 2026, 16:45 UTC · updated Nov 4: News RSS, Bluesky, bronze TTL + dbt silver layer live</p>
 <h1>Data architecture: where we stand</h1>
 <p class="lede">An hourly <b>batch pipeline</b> on a <b>medallion architecture</b>. Connectors <b>extract</b> from three upstream APIs,
 <b>load</b> the raw payloads into a <b>bronze</b> zone and conformed records into <b>silver</b>, all in one Postgres warehouse.
@@ -211,10 +211,10 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
     <div class="hop"><b>CONFORM</b> parse · clean (HTML unescape) · deduplicate · upsert on natural key + time bucket</div>
 
     <div class="stage z-silver">
-      <div class="sh"><span class="num">④</span><div><div class="term">Silver: conformed layer</div><div class="tool">Postgres tables <code>items</code> (dimension) · <code>signals</code> (fact)</div></div><span class="chip part">Base live · cleansed views next</span></div>
+      <div class="sh"><span class="num">④</span><div><div class="term">Silver: conformed layer</div><div class="tool">Postgres tables <code>items</code> (dimension) · <code>signals</code> (fact)</div></div><span class="chip live">Live</span></div>
       <ul><li><b>Dimensional model</b>: <code>items</code> = one row per entity (SCD type 1); <code>signals</code> = <b>periodic snapshot fact</b>, grain: item × metric × hour.</li>
           <li>One shape for every source: a YouTube video, a Twitch stream and a Wikipedia article all land in the same two tables.</li>
-          <li>Next (P3.1): dbt staging models + <code>int_signal_deltas</code> (hourly <b>deltas</b>), covered by dbt tests.</li></ul>
+          <li>dbt (live Nov 4): <code>metric_catalog</code> seed (each metric's kind), <code>stg_items</code> / <code>stg_signals</code> views, <code>int_signal_deltas</code> table (change per hour over the real gap), 9 tests + freshness per source.</li></ul>
     </div>
 
     <div class="here"><b>▲ You are here.</b> Everything above runs in production (locally). Everything below turns metrics into "what's rising" and doesn't exist yet.</div>
@@ -245,8 +245,8 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
     <div class="lab">Platform (spans every stage)</div>
     <div class="rc"><div class="top"><b>Orchestration</b><span class="chip live">Live</span></div>
       <p>APScheduler: cron and interval triggers, a lock per job (<code>max_instances=1</code>), missed runs collapsed (<code>coalesce</code>), 10-minute misfire grace.</p></div>
-    <div class="rc"><div class="top"><b>Data quality</b><span class="chip part">Partial</span></div>
-      <p>Live: pydantic contracts, unique + foreign-key constraints, retry policy. Next: dbt tests (no duplicates, no negative deltas, no null timestamps) + <code>dbt source freshness</code>.</p></div>
+    <div class="rc"><div class="top"><b>Data quality</b><span class="chip live">Live</span></div>
+      <p>Ingest: pydantic contracts, unique + FK constraints. Transform: dbt tests (uniqueness, not-null, metric catalog coverage, shrinking totals &gt; 5%/24h warns) + <code>dbt source freshness</code> per source.</p></div>
     <div class="rc"><div class="top"><b>Observability</b><span class="chip part">Partial</span></div>
       <p>Live: <code>connector_runs</code> run log (status, row counts, cost, error) and worker logs. Planned: Sentry, Healthchecks heartbeat, ops alert after 2 failed runs.</p></div>
     <div class="rc"><div class="top"><b>Governance &amp; security</b><span class="chip part">Partial</span></div>
@@ -277,11 +277,11 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
     <tr><td class="nw"><b>Raw landing zone</b> (bronze)</td><td>Immutable raw payloads, replay</td><td>Postgres JSONB <code>raw_responses</code></td><td><span class="chip live">Live</span></td><td>Raw &gt; a few GB or longer retention → object storage (R2) as compressed JSON/Parquet</td></tr>
     <tr><td class="nw"><b>Warehouse</b></td><td>Store silver + gold, run SQL</td><td>Postgres 17 (pgvector image)</td><td><span class="chip live">Live</span></td><td><code>signals</code> &gt; ~50M rows → monthly partitioning; heavy analytics → columnar engine (ClickHouse/BigQuery)</td></tr>
     <tr><td class="nw"><b>Load pattern</b></td><td>Idempotent merge</td><td><code>INSERT … ON CONFLICT DO UPDATE</code> on natural key + time bucket</td><td><span class="chip live">Live</span></td><td>n/a (same idea as <code>MERGE</code> elsewhere)</td></tr>
-    <tr><td class="nw"><b>Transformation engine</b></td><td>Silver → gold models</td><td><b>dbt Core</b> (dbt-postgres): staging → intermediate → marts; topic extraction as a Python step</td><td><span class="chip next">Next · decided Nov 4</span></td><td>dbt Cloud not needed; Dagster to orchestrate dbt if the graph grows</td></tr>
+    <tr><td class="nw"><b>Transformation engine</b></td><td>Silver → gold models</td><td><b>dbt Core</b> (dbt-postgres): staging → intermediate → marts; topic extraction as a Python step</td><td><span class="chip live">Live · silver models</span></td><td>dbt Cloud not needed; Dagster to orchestrate dbt if the graph grows</td></tr>
     <tr><td class="nw"><b>Orchestrator</b></td><td>Schedule, lock, recover missed runs</td><td>APScheduler (in-process)</td><td><span class="chip live">Live</span></td><td>Real dependency graph, backfill UI, several workers → Dagster</td></tr>
     <tr><td class="nw"><b>Schema migrations</b></td><td>Versioned DDL</td><td>Alembic</td><td><span class="chip live">Live</span></td><td>n/a</td></tr>
     <tr><td class="nw"><b>Pipeline observability</b></td><td>Run status, volume, cost, errors</td><td><code>connector_runs</code> + logs; later Sentry, Healthchecks.io, Telegram ops alerts</td><td><span class="chip part">Partial</span></td><td>Many pipelines → metrics stack (Prometheus/Grafana)</td></tr>
-    <tr><td class="nw"><b>Data quality tests</b></td><td>Assert invariants on data</td><td>DB constraints now; dbt tests (unique, not_null, relationships, custom) + source freshness in P3.1</td><td><span class="chip part">Partial</span></td><td>Great Expectations only if dbt tests fall short</td></tr>
+    <tr><td class="nw"><b>Data quality tests</b></td><td>Assert invariants on data</td><td>DB constraints + dbt tests (not_null, accepted_values, singular SQL tests) + source freshness</td><td><span class="chip live">Live</span></td><td>Great Expectations only if dbt tests fall short</td></tr>
     <tr><td class="nw"><b>Topic modelling</b></td><td>Group items into entities</td><td>Keyword aliases + n-grams</td><td><span class="chip plan">Phase 3</span></td><td>Top-20 review fails → MiniLM embeddings in pgvector + HDBSCAN</td></tr>
     <tr><td class="nw"><b>Serving API</b></td><td>Expose gold to apps</td><td>FastAPI</td><td><span class="chip plan">Phase 4</span></td><td>n/a</td></tr>
     <tr><td class="nw"><b>Cache</b></td><td>Absorb read traffic</td><td>Next.js ISR <code>revalidate</code> (hourly)</td><td><span class="chip plan">Phase 4</span></td><td>API p95 too slow under load → Redis</td></tr>
@@ -303,7 +303,9 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
     <tr><td class="nw"><code>items</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>Dimension, SCD type 1 (title overwritten)</td><td>one video / stream / clip / article / channel</td><td>natural <code>(source, item_id)</code></td><td>upsert</td><td>indefinite</td><td class="num">103</td></tr>
     <tr><td class="nw"><code>signals</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>Periodic snapshot fact</td><td>item × metric × time bucket <span class="sub">hour; day for pageviews and subscribers</span></td><td>unique <code>(source, item_id, metric_name, captured_at)</code>, FK → items</td><td>idempotent upsert</td><td>indefinite</td><td class="num">748</td></tr>
     <tr><td class="nw"><code>connector_runs</code></td><td class="nw"><i class="zone ops"></i>Ops metadata</td><td>Run log / audit</td><td>one job execution</td><td><code>id</code>, index (source, started_at)</td><td>insert, update on finish</td><td>indefinite</td><td class="num">9</td></tr>
-    <tr class="planned"><td class="nw"><code>int_signal_deltas</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>dbt incremental model</td><td>item × metric × hour, with change vs previous reading</td><td>unique key <code>(source, item_id, metric_name, captured_at)</code></td><td><code>dbt build</code> each cycle</td><td>derived</td><td class="num">P3.1</td></tr>
+    <tr><td class="nw"><code>metric_catalog</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>dbt seed (reference data)</td><td>one metric of one source: kind, bucket, meaning</td><td><code>(source, metric_name)</code></td><td>seeded each build</td><td>in git</td><td class="num">11</td></tr>
+    <tr><td class="nw"><code>stg_items</code> · <code>stg_signals</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>dbt views</td><td>same as <code>items</code> · <code>signals</code>, cleaned and labelled with metric kind</td><td>same</td><td>view (always current)</td><td>n/a</td><td class="num">views</td></tr>
+    <tr><td class="nw"><code>int_signal_deltas</code></td><td class="nw"><i class="zone silver"></i>Silver</td><td>dbt table (full rebuild)</td><td>item × metric × bucket, with change vs previous reading and per hour</td><td><code>(source, item_id, metric_name, captured_at)</code></td><td><code>dbt build</code> hourly at :40</td><td>derived</td><td class="num">4,858</td></tr>
     <tr class="planned"><td class="nw"><code>topics</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Dimension (stable IDs)</td><td>one topic</td><td><code>id</code>, <code>slug</code></td><td>upsert</td><td>indefinite</td><td class="num">P3.2</td></tr>
     <tr class="planned"><td class="nw"><code>topic_items</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Bridge table</td><td>topic × item</td><td><code>(topic_id, source, item_id)</code></td><td>rebuild each cycle</td><td>derived</td><td class="num">P3.2</td></tr>
     <tr class="planned"><td class="nw"><code>topic_scores</code></td><td class="nw"><i class="zone gold"></i>Gold</td><td>Periodic snapshot fact</td><td>topic × hour</td><td><code>(topic_id, hour)</code></td><td>upsert</td><td>indefinite</td><td class="num">P3.3</td></tr>
@@ -379,6 +381,7 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
     <tr><td><code>wikipedia.collect</code></td><td class="nw">interval 6h (+ on start)</td><td>per-article pageviews, 30-day lookback</td><td>bronze, <code>items</code>, <code>signals</code></td><td>6 calls</td><td><span class="chip live">Live</span></td></tr>
     <tr><td><code>bluesky.collect</code></td><td class="nw">cron :25 (+ on start)</td><td>login → searchPosts (24h, latest + top)</td><td>bronze, <code>items</code>, <code>signals</code></td><td>1 login + ≤10 calls</td><td><span class="chip live">Live</span></td></tr>
     <tr><td><code>rss.collect</code></td><td class="nw">cron :20 (+ on start)</td><td>8 RSS 2.0 feeds, GTA keyword filter</td><td>bronze (all entries), <code>items</code></td><td>8 requests</td><td><span class="chip live">Live</span></td></tr>
+    <tr><td><code>transform.build</code></td><td class="nw">cron :40 (+ 3 min after start)</td><td>dbt build → dbt source freshness</td><td><code>analytics.*</code></td><td>~5 s</td><td><span class="chip live">Live</span></td></tr>
     <tr><td><code>maintenance.purge_raw</code></td><td class="nw">cron 03:30 daily</td><td>bronze</td><td>deletes rows &gt; 30 days</td><td>0</td><td><span class="chip live">Live</span></td></tr>
   </tbody>
 </table></div>
@@ -387,7 +390,7 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
   <div class="dag">
     <span class="n live">discover :00</span><span class="a">→</span><span class="n tbl">items</span><span class="a">→</span>
     <span class="n live">snapshot :05</span><span class="a">→</span><span class="n tbl">signals</span><span class="a">→</span>
-    <span class="n next">dbt build: silver models</span><span class="a">→</span><span class="n plan">dbt tests</span><span class="a">→</span>
+    <span class="n live">dbt build: silver models</span><span class="a">→</span><span class="n live">dbt tests + freshness</span><span class="a">→</span>
     <span class="n plan">topic extraction (Python)</span><span class="a">→</span><span class="n plan">dbt build: gold marts</span><span class="a">→</span>
     <span class="n plan">spike alerts</span>
   </div>
@@ -419,11 +422,11 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
   <tbody>
     <tr><td><b>Sources + ingestion</b></td><td><span class="chip live">Live</span></td><td>Twitch waits for its category; uploads-playlist discovery (needs a channel list)</td><td class="nw">P1.5 · P2.1–P2.3</td></tr>
     <tr><td><i class="zone bronze"></i><b>Bronze</b></td><td><span class="chip live">Live</span></td><td>Done: 30-day purge runs daily</td><td class="nw">P1.4 + cleanup</td></tr>
-    <tr><td><i class="zone silver"></i><b>Silver</b></td><td><span class="chip part">Partial</span></td><td>Cleansed view with deltas + DQ assertions</td><td class="nw">P3.1</td></tr>
+    <tr><td><i class="zone silver"></i><b>Silver</b></td><td><span class="chip live">Live</span></td><td>Done: dbt silver models, tests, freshness (Nov 4)</td><td class="nw">P3.1</td></tr>
     <tr><td><i class="zone gold"></i><b>Gold</b></td><td><span class="chip plan">Not started</span></td><td>Topics, scores, spam filter, top-20 review</td><td class="nw">P3.2 · P3.3</td></tr>
     <tr><td><b>Serving</b></td><td><span class="chip plan">Not started</span></td><td>API, website, SEO, mobile</td><td class="nw">P4.1–P4.6</td></tr>
     <tr><td><b>Activation</b></td><td><span class="chip plan">Not started</span></td><td>Email digest, Telegram alerts, daily card</td><td class="nw">P5.1–P5.3</td></tr>
-    <tr><td><b>Orchestration</b></td><td><span class="chip live">Live</span></td><td>Run dbt after each snapshot</td><td class="nw">P3.1</td></tr>
+    <tr><td><b>Orchestration</b></td><td><span class="chip live">Live</span></td><td>Done: <code>transform.build</code> hourly at :40</td><td class="nw">P3.1</td></tr>
     <tr><td><b>Observability</b></td><td><span class="chip part">Partial</span></td><td>Sentry, heartbeat, ops alerts, admin page</td><td class="nw">P2.6 · P6.1 · P6.2</td></tr>
     <tr><td><b>Platform</b> (server, CI/CD, backups)</td><td><span class="chip block">Blocked</span></td><td>Needs the VPS + domain</td><td class="nw">P1.1–P1.3 · P2.4 · P2.5</td></tr>
   </tbody>
@@ -455,7 +458,7 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
   <div class="rule"><div><b>Gold derives only from silver</b><span>As dbt models, rebuilt each cycle. Manual fixes go in an overrides table, never into gold rows.</span></div></div>
   <div class="rule"><div><b>Every job writes a run record</b><span>Status, rows, cost, error, in <code>connector_runs</code>.</span></div></div>
   <div class="rule"><div><b>Every dbt model has tests</b><span>No duplicates, no negative deltas, no null timestamps, at minimum.</span></div></div>
-  <div class="rule"><div><b>DDL only via Alembic</b><span>No hand-edited schema, anywhere.</span></div></div>
+  <div class="rule"><div><b>DDL only via Alembic</b><span>No hand-edited schema. dbt views depend on <code>items</code>/<code>signals</code>: dropping or retyping their columns needs <code>DROP SCHEMA analytics CASCADE</code> first (the next dbt build recreates it).</span></div></div>
   <div class="rule"><div><b>Secrets never in URLs, logs or git</b><span>Env vars now, Vault and GitHub secrets on the server.</span></div></div>
   <div class="rule"><div><b>Simplest tool that holds</b><span>Each has a written swap trigger (section 2).</span></div></div>
 </div>
@@ -466,7 +469,7 @@ Next, <b>dbt</b> (SQL) <b>transformations</b> inside the warehouse will build <b
   <div class="card"><h3>Me</h3><ol>
     <li><b>Bronze TTL</b>: daily <code>purge_raw</code> job + test.</li>
     <li><b>More sources first</b> (your call, Nov 4): News RSS, Bluesky; Reddit and Google Trends when approved.</li>
-    <li><b>dbt P3.1</b>: dbt project, staging models, <code>int_signal_deltas</code>, tests, freshness.</li>
+    <li><b>dbt P3.1 ✓ live Nov 4</b>. Next: <b>P3.2 topics</b> (needs your language decision), then P3.3 scoring.</li>
     <li><b>Gold P3.2–3.3</b>: topics, momentum score, spam filter → top 20 for your review.</li>
   </ol></div>
   <div class="card"><h3>You</h3><ol>

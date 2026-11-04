@@ -1,0 +1,26 @@
+version: 2
+
+models:
+  - name: stg_signals
+    description: Every metric reading, labelled with its kind from the metric catalog.
+    columns:
+      - name: kind
+        description: cumulative | gauge | per_period. Null means the metric is missing from seeds/metric_catalog.csv.
+        data_tests: [not_null]
+      - name: metric_value
+        data_tests: [not_null]
+      - name: captured_at
+        data_tests: [not_null]
+
+  - name: stg_items
+    description: Every item from every source.
+    columns:
+      - name: item_id
+        data_tests: [not_null]
+      - name: url
+        data_tests: [not_null]
+      - name: item_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [video, channel, stream, clip, article, post]

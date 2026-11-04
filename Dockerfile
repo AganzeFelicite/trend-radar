@@ -7,6 +7,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY alembic.ini ./
 COPY migrations ./migrations
 COPY trend_radar ./trend_radar
+COPY dbt ./dbt
 
 RUN useradd --system --no-create-home app
 USER app

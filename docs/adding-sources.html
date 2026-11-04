@@ -421,30 +421,23 @@ docker compose exec worker python -c "from trend_radar.connectors import example
 </div></div>
 
 <div class="step"><div class="n">7</div><div>
-  <h3>dbt source + staging model <span class="de">transform layer (from P3.1)</span></h3>
-  <p class="small">Skip this until the dbt project exists. The file layout is fixed when P3.1 creates the project; this shows the shape.</p>
-  <div class="code"><span class="fn">dbt/models/staging/_sources.yml: one freshness check per source on the shared table</span><button class="copy">Copy</button>
+  <h3>Register it in dbt <span class="de">metric catalog + freshness</span></h3>
+  <p class="small"><b>Required:</b> every metric the connector writes must be in the metric catalog. If one is missing, the <code>not_null_stg_signals_kind</code> test fails and the whole dbt build stops. That's on purpose: it's the contract between ingestion and transform.</p>
+  <div class="code"><span class="fn">dbt/seeds/metric_catalog.csv: one row per metric (kind = cumulative | gauge | per_period)</span><button class="copy">Copy</button>
+<pre>example,likes,cumulative,hour,Total likes of a post
+example,replies,cumulative,hour,Total replies to a post</pre></div>
+  <div class="code"><span class="fn">dbt/models/staging/_sources.yml: a freshness check for the source</span><button class="copy">Copy</button>
 <pre>      - name: example_signals
         identifier: signals
-        loaded_at_field: captured_at
-        freshness:
-          warn_after: {count: 2, period: hour}
-          error_after: {count: 6, period: hour}
-          filter: "source = 'example'"</pre></div>
-  <div class="code"><span class="fn">dbt/models/staging/stg_example__posts.sql</span><button class="copy">Copy</button>
-<pre>select
-    item_id       as post_id,
-    title,
-    url,
-    channel_title as author,
-    published_at
-from {{ source('warehouse', 'items') }}
-where source = 'example' and item_type = 'post'</pre></div>
-  <div class="code"><span class="fn">dbt/models/staging/_models.yml</span><button class="copy">Copy</button>
-<pre>  - name: stg_example__posts
-    columns:
-      - name: post_id
-        data_tests: [unique, not_null]</pre></div>
+        config:
+          loaded_at_field: captured_at
+          freshness:
+            warn_after: {count: 2, period: hour}
+            error_after: {count: 6, period: hour}
+            filter: "source = 'example'"</pre></div>
+  <p class="small muted">No metrics (like RSS)? Check the job instead: <code>identifier: connector_runs</code>, <code>loaded_at_field: finished_at</code>, filter on the source and <code>status in ('ok', 'partial')</code>. A source-specific staging model is only needed if the source needs its own cleaning; <code>stg_items</code> and <code>stg_signals</code> already cover every source.</p>
+  <div class="code"><span class="fn">terminal</span><button class="copy">Copy</button>
+<pre>cd dbt && uv run dbt build --profiles-dir . && uv run dbt source freshness --profiles-dir .</pre></div>
 </div></div>
 
 <div class="step"><div class="n">8</div><div>
@@ -530,7 +523,7 @@ git push</pre></div>
   <label><input type="checkbox" data-k="tests"> 3 tests pass (lands + idempotent · failure mode · schema drift), full suite green</label>
   <label><input type="checkbox" data-k="real"> Real run: <code>connector_runs</code> ok, rows in silver, raw payload looks right</label>
   <label><input type="checkbox" data-k="docs"> CONNECTORS.md row, architecture page, PLAN.md ticked</label>
-  <label><input type="checkbox" data-k="dbt"> dbt source + freshness + staging model with tests (from P3.1)</label>
+  <label><input type="checkbox" data-k="dbt"> Metrics in <code>metric_catalog.csv</code> + freshness entry; <code>dbt build</code> green</label>
   <label><input type="checkbox" data-k="commit"> Committed and pushed; <code>.env</code> not in the commit</label>
   <label><input type="checkbox" data-k="day1"> First 24h reviewed: every run ok, under budget</label>
   <button id="reset" type="button">Clear ticks</button>

@@ -1,0 +1,8 @@
+version: 2
+
+models:
+  - name: int_signal_deltas
+    description: Change per reading and per hour for every item and metric. Input to topic scoring (P3.3).
+    columns:
+      - name: captured_at
+        data_tests: [not_null]

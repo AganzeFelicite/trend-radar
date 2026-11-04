@@ -1,9 +1,9 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 
-from trend_radar import config, maintenance
+from trend_radar import config, maintenance, transform
 from trend_radar.connectors import bluesky, rss, twitch, wikipedia, youtube
 
 log = logging.getLogger("scheduler")
@@ -22,6 +22,8 @@ def main() -> None:
     sched.add_job(wikipedia.collect, "interval", hours=6, next_run_time=now)
     sched.add_job(rss.collect, "cron", minute=20, next_run_time=now)
     sched.add_job(maintenance.purge_raw, "cron", hour=3, minute=30)
+    # Transform after every hourly ingestion job (:05 snapshot … :25 Bluesky). Also 3 min after start.
+    sched.add_job(transform.build, "cron", minute=40, next_run_time=now + timedelta(minutes=3))
 
     if config.YOUTUBE_API_KEY:
         sched.add_job(youtube.discover, "interval", hours=config.YOUTUBE_SEARCH_EVERY_HOURS, next_run_time=now)

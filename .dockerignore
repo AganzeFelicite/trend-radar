@@ -4,4 +4,7 @@
 !alembic.ini
 !migrations
 !trend_radar
+!dbt
+dbt/target
+dbt/logs
 **/__pycache__

@@ -1,0 +1,14 @@
+# No secrets here: everything comes from env vars (compose sets them in the worker; defaults match local dev).
+trend_radar:
+  target: default
+  outputs:
+    default:
+      type: postgres
+      host: "{{ env_var('DBT_HOST', 'localhost') }}"
+      port: 5432
+      # `or`, not a default: dbt 1.12 auto-loads .env, where these may be set but empty.
+      user: "{{ env_var('POSTGRES_USER', '') or 'trend_radar' }}"
+      password: "{{ env_var('POSTGRES_PASSWORD', '') or 'trend_radar' }}"
+      dbname: "{{ env_var('DBT_DBNAME', 'trend_radar') }}"
+      schema: analytics
+      threads: 4

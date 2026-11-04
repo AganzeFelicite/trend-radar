@@ -109,8 +109,10 @@ Done when: three sources land in `signals`, a backup restores, and a push to `ma
 ## Phase 3: The brain (Nov 6–8)
 Done when: hourly top topics look sensible to a human, with no obvious duplicates or spam.
 
-- [ ] **P3.1** dbt Core project (decided Nov 4): sources + freshness, staging models, `int_signal_deltas`; `dbt build` run by the scheduler after each snapshot
-  - [ ] dbt tests pass: no duplicates, no negative growth, no null timestamps; `dbt source freshness` passes
+- [x] **P3.1** dbt Core project (decided Nov 4): sources + freshness, staging models, `int_signal_deltas`; `dbt build` run by the scheduler after each snapshot
+  - [x] dbt tests pass: no duplicates, no null timestamps, every metric in `metric_catalog`; shrinking cumulative totals warn above 5% of the last 24h (real rate ~1.7%); `dbt source freshness` passes for YouTube, Bluesky, Wikipedia, RSS
+  - [x] `transform.build` hourly at :40, logged in `connector_runs` (ok / partial / error); 2 pytest tests run the real dbt project on the test DB
+  - Verified: in the worker container: `dbt build` 15/15 nodes ok, 4,858 delta rows; Safehouse video +10,049 views/h across the 5 h sleep gap
   - Verified:
 - [ ] **P3.2** Title cleaning + keyword topics (aliases + n-grams) → `topics`, `topic_items`
   - [ ] Same topic keeps same ID hour to hour

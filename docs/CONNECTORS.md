@@ -36,4 +36,4 @@ Step-by-step guide with copy-paste templates and the source catalog: [adding-sou
 8. **Schedule** in `scheduler.py`, gated on its keys being present.
 9. **Test** in `tests/test_<source>.py` with `httpx.MockTransport`: data lands, a re-run doesn't duplicate, and the source's failure mode is handled (bad token, missing data, quota).
 10. **Terms:** official API only, respect its rate limits and storage rules, never resell raw data.
-11. **dbt** (from P3.1): declare the source with a freshness check and add a staging model `stg_<source>__<entity>` with tests.
+11. **dbt:** add every new metric to `dbt/seeds/metric_catalog.csv` (the build fails otherwise, on purpose) and a freshness entry in `dbt/models/staging/_sources.yml`. Transform runs hourly at :40 (`transform.build`).

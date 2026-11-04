@@ -1,0 +1,14 @@
+name: trend_radar
+version: "1.0"
+profile: trend_radar
+config-version: 2
+
+flags:
+  send_anonymous_usage_stats: false
+
+models:
+  trend_radar:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: table

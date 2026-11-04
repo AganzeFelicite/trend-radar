@@ -1,0 +1,12 @@
+source,metric_name,kind,bucket,description
+youtube,views,cumulative,hour,Total views of a video
+youtube,likes,cumulative,hour,Total likes of a video
+youtube,comments,cumulative,hour,Total comments on a video
+youtube,subscribers,cumulative,day,Subscribers of a channel
+twitch,viewers,gauge,hour,Concurrent viewers of a live stream at capture time
+twitch,views,cumulative,hour,Total views of a clip
+wikipedia,pageviews,per_period,day,Views of an article on that day (users only)
+bluesky,likes,cumulative,hour,Total likes of a post
+bluesky,reposts,cumulative,hour,Total reposts of a post
+bluesky,replies,cumulative,hour,Total replies to a post
+bluesky,quotes,cumulative,hour,Total quote posts of a post

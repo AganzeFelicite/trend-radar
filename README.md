@@ -26,6 +26,12 @@ docker compose up -d --build       # runs every connector that has its keys; Wik
 docker compose logs -f worker
 ```
 
+Transform layer (dbt; also runs hourly in the worker):
+
+```sh
+cd dbt && uv run dbt build --profiles-dir . && uv run dbt source freshness --profiles-dir .
+```
+
 Check what's been collected:
 
 ```sh

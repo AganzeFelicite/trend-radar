@@ -19,6 +19,8 @@ from trend_radar.db import Base, engine  # noqa: E402
 
 @pytest.fixture(autouse=True)
 def fresh_db(monkeypatch):
+    with engine.begin() as c:  # dbt's views depend on the base tables; dbt rebuilds them anyway
+        c.execute(text("drop schema if exists analytics cascade"))
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     monkeypatch.setattr(time, "sleep", lambda _: None)  # tenacity backoff sleeps through time.sleep

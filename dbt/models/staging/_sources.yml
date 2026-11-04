@@ -1,0 +1,44 @@
+version: 2
+
+sources:
+  - name: warehouse
+    schema: public
+    description: Bronze and silver base tables, written by the Python connectors.
+    tables:
+      - name: items
+      - name: signals
+      - name: connector_runs
+
+      # Freshness, one entry per source on the shared tables. Twitch is left out until its category exists.
+      - name: youtube_signals
+        identifier: signals
+        config:
+          loaded_at_field: captured_at
+          freshness:
+            warn_after: {count: 2, period: hour}
+            error_after: {count: 6, period: hour}
+            filter: "source = 'youtube' and metric_name = 'views'"
+      - name: bluesky_signals
+        identifier: signals
+        config:
+          loaded_at_field: captured_at
+          freshness:
+            warn_after: {count: 2, period: hour}
+            error_after: {count: 6, period: hour}
+            filter: "source = 'bluesky'"
+      - name: wikipedia_signals  # daily data, published about a day late
+        identifier: signals
+        config:
+          loaded_at_field: captured_at
+          freshness:
+            warn_after: {count: 72, period: hour}
+            error_after: {count: 120, period: hour}
+            filter: "source = 'wikipedia'"
+      - name: rss_runs  # RSS has no metrics and quiet hours are normal, so check the job, not the data
+        identifier: connector_runs
+        config:
+          loaded_at_field: finished_at
+          freshness:
+            warn_after: {count: 2, period: hour}
+            error_after: {count: 6, period: hour}
+            filter: "source = 'rss' and status in ('ok', 'partial')"

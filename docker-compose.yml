@@ -19,6 +19,9 @@ services:
     build: .
     environment:
       DATABASE_URL: postgresql+psycopg://trend_radar:${POSTGRES_PASSWORD:-trend_radar}@postgres:5432/trend_radar
+      # dbt connects with these (dbt/profiles.yml)
+      DBT_HOST: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trend_radar}
       # Connectors without keys are skipped (Wikipedia needs none, so the worker is always useful).
       YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
       TWITCH_CLIENT_ID: ${TWITCH_CLIENT_ID:-}
