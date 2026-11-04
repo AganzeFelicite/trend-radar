@@ -10,6 +10,7 @@ export type Topic = {
   name: string;
   origin: "curated" | "ai";
   rank: number | null;
+  rank_6h_ago?: number | null; // null: not ranked (or no data) 6 hours ago
   score: number;
   attention?: number;
   growth: number | null; // null until the previous 24h is covered
@@ -60,6 +61,8 @@ async function get<T>(path: string): Promise<T | null> {
   return cached<T>(path);
 }
 
-export const getTopTopics = () => get<{ updated_at: string | null; topics: Topic[] }>("/api/topics/top");
+export type Stats = { items_24h: number; sources: number; topics: number };
+export const getTopTopics = () =>
+  get<{ updated_at: string | null; stats: Stats; topics: Topic[] }>("/api/topics/top");
 export const getTopic = (slug: string) => get<TopicPage>(`/api/topics/${encodeURIComponent(slug)}`);
 export const getRisingVideos = () => get<{ updated_at: string | null; videos: Video[] }>("/api/videos/rising");

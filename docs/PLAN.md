@@ -140,7 +140,8 @@ Done when: a stranger on a phone understands the site, sees today's top topics, 
 - [ ] **P4.5** About (unofficial, not affiliated, "Data from YouTube") + Privacy policy + Pro teaser
   - Verified:
 - [ ] **P4.6** SEO, original design, mobile-first, Sentry in web
-  - [ ] Every page checked at phone width
+  - [x] Every page checked at phone width (Nov 4, screenshots at 390 px, light + dark)
+  - Design pass Nov 4: radar hero (top 5 as blips, CSS sweep, off with reduced motion), featured #1 card with evidence, rank change over 6h (`rank_6h_ago`), live stats strip, YouTube thumbnails (served by YouTube, not proxied or stored), axis-labelled score chart, Bluesky post cards. SEO + Sentry still to do.
   - Verified:
 
 ## Phase 5: Delivery (Nov 12)

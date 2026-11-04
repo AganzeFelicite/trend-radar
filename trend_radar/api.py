@@ -28,7 +28,9 @@ select s.topic_slug as slug, t.topic_name as name, t.origin, s.rank::int, coales
        array(select coalesce(h2.score, 0)::float
              from hours h left join analytics.topic_scores h2 on h2.scored_at = h.scored_at and h2.topic_slug = s.topic_slug
              order by h.scored_at) as series,
-       (select min(scored_at) from hours) as series_start
+       (select min(scored_at) from hours) as series_start,
+       (select p.rank::int from analytics.topic_scores p
+        where p.topic_slug = s.topic_slug and p.scored_at = latest.t - interval '6 hours') as rank_6h_ago
 from analytics.topic_scores s
 join analytics.topics t using (topic_slug)
 join latest on s.scored_at = latest.t
@@ -61,7 +63,10 @@ def health():
 @app.get("/api/topics/top")
 def top_topics(limit: int = Query(5, ge=1, le=10)):
     topics = rows(TOPICS + " order by s.rank, s.score desc, s.topic_slug limit :limit", limit=limit)
-    return {"updated_at": updated_at(), "topics": [topic_view(r) for r in topics]}
+    stats = rows("""select (select count(*) from analytics.rising_items) as items_24h,
+                           (select count(distinct source) from analytics.rising_items) as sources,
+                           (select count(*) from analytics.topics) as topics""")[0]
+    return {"updated_at": updated_at(), "stats": stats, "topics": [topic_view(r) for r in topics]}
 
 
 @app.get("/api/topics/{slug}")

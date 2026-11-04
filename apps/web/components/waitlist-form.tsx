@@ -21,20 +21,20 @@ export function WaitlistForm() {
   }
 
   if (state === "done") {
-    return <p className="font-medium text-emerald-700 dark:text-emerald-400">You&apos;re on the list. See you tomorrow morning.</p>;
+    return <p className="rounded-xl bg-white/15 px-4 py-3 font-semibold">✓ You&apos;re on the list. See you tomorrow morning.</p>;
   }
   return (
     <form action={submit} className="space-y-2">
       <div className="flex flex-col gap-2 sm:flex-row">
         <label htmlFor="email" className="sr-only">Email</label>
         <input id="email" name="email" type="email" required autoComplete="email" placeholder="you@example.com"
-               className="min-w-0 flex-1 rounded-xl border border-neutral-300 bg-white px-4 py-3 text-base outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 dark:border-neutral-700 dark:bg-neutral-950" />
+               className="min-w-0 flex-1 rounded-xl border-0 bg-white px-4 py-3 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-4 focus:ring-white/40" />
         <button disabled={state === "sending"}
-                className="rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
+                className="rounded-xl bg-neutral-950 px-5 py-3 font-semibold text-white transition hover:bg-neutral-800 disabled:opacity-60">
           {state === "sending" ? "Joining…" : "Join the waitlist"}
         </button>
       </div>
-      {state !== "idle" && state !== "sending" && <p role="alert" className="text-sm text-rose-700 dark:text-rose-400">{state}</p>}
+      {state !== "idle" && state !== "sending" && <p role="alert" className="text-sm font-semibold text-white">⚠ {state}</p>}
     </form>
   );
 }

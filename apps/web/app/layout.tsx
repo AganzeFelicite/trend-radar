@@ -15,7 +15,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col font-sans">
-        <header className="mx-auto flex w-full max-w-2xl items-center justify-between px-4 py-5">
+        <header className="sticky top-0 z-20 border-b border-neutral-200/70 bg-neutral-50/80 backdrop-blur-md dark:border-neutral-800/70 dark:bg-neutral-950/80">
+          <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3">
           <Link href="/" className="flex items-center gap-2 font-bold tracking-tight">
             {/* eslint-disable-next-line @next/next/no-img-element -- 1 KB svg, nothing to optimise */}
             <img src="/icon.svg" alt="" width={28} height={28} />
@@ -23,11 +24,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </Link>
           <nav className="flex gap-4 text-sm text-neutral-600 dark:text-neutral-400">
             <Link href="/" className="hover:text-neutral-900 dark:hover:text-white">Topics</Link>
-            <Link href="/videos" className="hover:text-neutral-900 dark:hover:text-white">Rising videos</Link>
+            <Link href="/videos" className="hover:text-neutral-900 dark:hover:text-white">Breakout videos</Link>
           </nav>
+          </div>
         </header>
-        <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-16">{children}</main>
-        <footer className="mx-auto w-full max-w-2xl space-y-2 px-4 py-8 text-xs text-neutral-500">
+        <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-16 pt-4">{children}</main>
+        <footer className="mx-auto w-full max-w-3xl space-y-2 border-t border-neutral-200 px-4 py-8 text-xs text-neutral-500 dark:border-neutral-800">
           <p>
             Unofficial fan-made tool. Not affiliated with or endorsed by Rockstar Games or Take-Two Interactive.
             All trademarks belong to their owners.
