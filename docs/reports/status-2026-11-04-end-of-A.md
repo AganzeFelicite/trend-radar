@@ -12,7 +12,7 @@
 | A3 Stale runs | P2.12 | Row 91 is now `aborted` |
 | A4 Top-5 trust rule | P3.4 | Blue Texas moved from #1 to #6; the top 5 are all 3-source topics |
 
-PLAN.md now holds the launch priority order and the new **Phase 9 (AI channel and content engine, P9.1–P9.7)**. B1 (server) waits for the owner's VPS and domain.
+PLAN.md now holds the launch priority order and the new **Phase 9 (AI channel and content engine, P9.1–P9.8;** revised the same day: content packages for the owner's Video Studio instead of videos, plus YouTube-policy safeguards**)**. B1 (server) waits for the owner's VPS and domain.
 
 ---
 
@@ -25,7 +25,8 @@ PLAN.md now holds the launch priority order and the new **Phase 9 (AI channel an
 | A2 | P2.11 |
 | A3 | P2.12 |
 | A4 | P3.4 |
-| C1–C7 | Phase 9: P9.1–P9.7 |
+| C1–C7 | Phase 9: P9.1–P9.7 (C5 = P9.5 Content Package export; C6 = P9.6 multi-language packages) |
+| YouTube-policy safeguards | P9.8 |
 
 B is a priority order over existing tasks (P1.1–P1.3, P2.4–P2.6, P4.5–P4.6, P5.x). Two checks were added to P1.2: no dev password defaults, and history moved with row counts matching.
 
@@ -40,7 +41,7 @@ B is a priority order over existing tasks (P1.1–P1.3, P2.4–P2.6, P4.5–P4.6
 | P2.12 Stale runs aborted | Done | pytest; real restart 08:17: log "marked 1 run(s) … as aborted", row 91 → `aborted`, finished_at set |
 | P3.3 Scoring | Partly done | Open: owner's top-20 approval |
 | P3.4 Top-5 trust rule + off-topic | Done | pytest on the real dbt project + API test; a dbt data test fails the build on a violation; real data and screenshots (§5) |
-| P9.1–P9.7 | Not started | – |
+| P9.1–P9.8 | Not started | – |
 
 ### Unchanged
 | Status | Tasks |
@@ -201,7 +202,7 @@ Unchanged: **no server, Terraform, Ansible, CI/CD or R2 backups.** Everything ru
 - **Run a real backup** to a folder of your choice.
 - **Blue Texas / Mark Tilbury Savings:** flag as off-topic or leave ranked.
 - **Top-20 approval** (P3.3).
-- **Phase 9 decisions:** RADAR name; the 2 extra languages (P9.6); a physical mailing address for the email footer (P9.4, required by email law). Avatar provider comes later: I'll bring a 2–3 option comparison before integrating.
+- **Phase 9 decisions:** RADAR name; the 2 extra languages (P9.6); a physical mailing address for the email footer (P9.4, required by email law). No avatar provider is needed here any more: videos are made in the owner's Video Studio from our Content Packages.
 - **Unchanged from before:** R2 keys, Telegram bot token, Sentry DSNs, Healthchecks URL, real Resend key; Reddit / Google Trends application status; brand name; thumbnails on the site.
 
 ---
