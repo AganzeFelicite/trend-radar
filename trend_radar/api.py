@@ -81,6 +81,8 @@ def topic(slug: str):
         "videos": rows(f"""select item_id, title, url, channel_title, activity_24h as views_24h, per_hour, {TOPIC_NAMES} as topics
                            from analytics.rising_items r where source = 'youtube' and :slug = any(topics)
                            order by activity_24h desc limit 8""", slug=slug),
+        "posts": rows("""select title, url, channel_title as author, activity_24h as engagement_24h from analytics.rising_items
+                         where source = 'bluesky' and :slug = any(topics) order by activity_24h desc limit 5""", slug=slug),
         "news": rows("""select title, url, channel_title as outlet, seen_at from analytics.rising_items
                         where source = 'rss' and :slug = any(topics) order by seen_at desc limit 5""", slug=slug),
         "keywords": rows("""select matched_alias as keyword, count(*) as items from analytics.topic_items

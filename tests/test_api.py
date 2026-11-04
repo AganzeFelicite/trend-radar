@@ -29,7 +29,8 @@ def marts():
                 ('youtube', 'v1', 'Pre-load guide', 'https://y/v1', 'Small', 50000, 2000.0, 2000, 25000.0, '{preload}'::text[], now()),
                 ('youtube', 'v2', 'Map tour', 'https://y/v2', 'Big', 90000, 4000.0, 5000000, 18.0, '{map}', now()),
                 ('youtube', 'v3', 'Huge, subs unknown', 'https://y/v3', '?', 99000, 9000.0, null, 99000.0, '{}', now()),
-                ('rss', 'n1', 'Pre-load starts Nov 10', 'https://n/1', 'IGN', 1, 1.0, null, null, '{preload}', now()))
+                ('rss', 'n1', 'Pre-load starts Nov 10', 'https://n/1', 'IGN', 1, 1.0, null, null, '{preload}', now()),
+                ('bluesky', 'p1', 'Pre-loading now', 'https://b/1', 'fan.bsky.social', 40, 2.0, null, null, '{preload}', now()))
               v(source, item_id, title, url, channel_title, activity_24h, per_hour, subscribers, per_1k_subs, topics, seen_at);
             create table analytics.topic_items as
               select * from (values ('preload', 'alias', 'pre load', now()), ('preload', 'alias', 'pre load', now()),
@@ -55,6 +56,7 @@ def test_top_topics_topic_page_and_rising_videos():
     assert [v["item_id"] for v in page["videos"]] == ["v1"]
     assert page["videos"][0]["topics"] == [{"slug": "preload", "name": "Pre-load"}]
     assert [n["outlet"] for n in page["news"]] == ["IGN"]
+    assert [(p["author"], p["engagement_24h"]) for p in page["posts"]] == [("fan.bsky.social", 40)]
     assert page["keywords"] == [{"keyword": "pre load", "items": 2}, {"keyword": "november 10", "items": 1}]
     assert client.get("/api/topics/quiet").json()["topic"]["score"] == 0  # known topic, no activity this hour
     assert client.get("/api/topics/nope").status_code == 404

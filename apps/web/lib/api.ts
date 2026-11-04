@@ -40,6 +40,7 @@ export type TopicPage = {
   topic: Topic;
   videos: Video[];
   news: { title: string; url: string; outlet: string; seen_at: string }[];
+  posts: { title: string; url: string; author: string; engagement_24h: number }[];
   keywords: { keyword: string; items: number }[];
 };
 

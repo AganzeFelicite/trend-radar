@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { Flags, Growth, Skeleton, Updated, VideoRow } from "@/components/ui";
+import { Flags, Growth, Skeleton, Updated, VideoRow, fmt } from "@/components/ui";
 import { getTopic, type Topic } from "@/lib/api";
 
 function Chart({ t }: { t: Topic }) {
@@ -46,7 +46,7 @@ async function TopicDetails({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const data = await getTopic(slug);
   if (!data) notFound();
-  const { topic: t, videos, news, keywords } = data;
+  const { topic: t, videos, posts, news, keywords } = data;
   return (
     <div className="space-y-8">
       <section className="space-y-3">
@@ -87,6 +87,20 @@ async function TopicDetails({ params }: { params: Promise<{ slug: string }> }) {
           <ol className="divide-y divide-neutral-200 dark:divide-neutral-800">
             {videos.map((v) => <VideoRow key={v.item_id} v={{ ...v, topics: [] }} />)}
           </ol>
+        </section>
+      )}
+
+      {posts.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">Top posts on Bluesky (24h)</h2>
+          <ul className="divide-y divide-neutral-200 dark:divide-neutral-800">
+            {posts.map((p) => (
+              <li key={p.url} className="py-3">
+                <a href={p.url} target="_blank" rel="noopener noreferrer" className="line-clamp-3 hover:underline">{p.title}</a>
+                <p className="mt-1 text-xs text-neutral-500">@{p.author} · {fmt(p.engagement_24h)} likes, reposts and replies</p>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 

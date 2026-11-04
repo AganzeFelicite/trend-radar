@@ -126,6 +126,14 @@ topic) and don't cross languages. Hybrid, so the curated topics stay exactly as 
    to it get `ai_spam` in `int_item_quality` and leave the scores). Titles are sent as untrusted data;
    names are sanitised (letters, digits, basic punctuation, 40 chars). Tokens used → `connector_runs.quota_used`.
 
+Owner's calls at the first AI review (Nov 4):
+- Effort `medium`, and spam only when nearly every title is an ad or scam: at `low`, Haiku called a cluster of
+  multilingual hype clips and the PS5 firmware story "spam", which would have removed real activity from scoring.
+- A cluster named like an existing topic, or like another cluster in the same call, is merged into it (Blexas → Blue
+  Texas, Chinese Jason shorts → Jason).
+- **Memes that mention GTA 6 but are about something else (e.g. "Blue Texas before GTA 6") stay ranked**: they are what
+  the GTA 6 conversation is about. Hide one by setting its `ai_topics.status` to `noise`.
+
 `topics` = curated (seed) ∪ AI (`ai_topics`, status `active`). Rename, merge or hide AI topics: update the row
 (P6.1 admin page later).
 

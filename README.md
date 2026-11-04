@@ -32,12 +32,18 @@ Transform layer (dbt; also runs hourly in the worker):
 cd dbt && uv run dbt build --profiles-dir . && uv run dbt source freshness --profiles-dir .
 ```
 
-Website + API (Phase 4):
+Day to day, everything goes through one script (run it with no arguments for help):
 
 ```sh
-docker compose up -d --build api web   # site on http://localhost:3100, API on http://localhost:8000/api/docs
-cd apps/web && npm install && npm run dev   # or: hot-reload dev server (needs the API on :8000)
+scripts/radar.sh up        # build all images from the current code and start: site http://localhost:3100
+scripts/radar.sh status    # containers, last pipeline runs, current top 5
+scripts/radar.sh refresh   # run the hourly cycle now (embeddings, AI naming, dbt scores)
+scripts/radar.sh topics    # review the AI's topic decisions
+scripts/radar.sh keys      # which .env keys are set (length only)
+scripts/radar.sh test      # all tests + website build
 ```
+
+Website hot-reload while editing: `cd apps/web && npm install && npm run dev` (needs the API on :8000).
 
 Check what's been collected:
 
