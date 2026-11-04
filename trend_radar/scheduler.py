@@ -8,6 +8,11 @@ from trend_radar.connectors import bluesky, rss, twitch, wikipedia, youtube
 
 log = logging.getLogger("scheduler")
 
+# max_instances=1 is the job lock: a slow run is never overlapped by the next one.
+# misfire_grace_time=3600 + coalesce: a job that wakes late (laptop asleep, slow neighbour) still runs, once,
+# instead of being skipped. Hourly jobs are never more than an hour behind their latest run time, so they always run.
+JOB_DEFAULTS = {"max_instances": 1, "coalesce": True, "misfire_grace_time": 3600}
+
 
 def transform_cycle() -> None:
     """AI layer, then dbt. An AI failure (model, API, key) is logged in connector_runs and never blocks scoring."""
@@ -22,11 +27,10 @@ def transform_cycle() -> None:
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
-    # max_instances=1 is the job lock: a slow run is never overlapped by the next one.
-    sched = BlockingScheduler(
-        timezone="UTC", job_defaults={"max_instances": 1, "coalesce": True, "misfire_grace_time": 600}
-    )
+    sched = BlockingScheduler(timezone="UTC", job_defaults=JOB_DEFAULTS)
     now = datetime.now(timezone.utc)
+    if n := maintenance.abort_stale_runs(before=now):
+        log.warning("marked %d run(s) left 'running' by the previous worker as aborted", n)
 
     # No keys needed: always on.
     sched.add_job(wikipedia.collect, "interval", hours=6, next_run_time=now)

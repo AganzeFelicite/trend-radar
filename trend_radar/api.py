@@ -19,17 +19,18 @@ UPDATED_AT = """select max(finished_at) from connector_runs
                 where source = 'dbt' and job = 'build' and status in ('ok', 'partial')"""
 
 # One row per topic in the latest scored hour. series = score for every scored hour of the last 7 days (0 = no activity).
+# rank = public_rank: the top 5 rule and off-topic flags are applied in dbt (topic_scores), so every reader agrees.
 TOPICS = """
 with hours as (select distinct scored_at from analytics.topic_scores),
 latest as (select max(scored_at) as t from hours)
-select s.topic_slug as slug, t.topic_name as name, t.origin, s.rank::int, coalesce(s.score, 0)::float as score,
+select s.topic_slug as slug, t.topic_name as name, t.origin, s.public_rank::int as rank, coalesce(s.score, 0)::float as score,
        s.attention, s.prev_attention, s.growth, s.items, s.channels, s.sources,
-       s.is_new, s.is_spiking, s.is_confirmed,
+       s.is_new, s.is_spiking, s.is_confirmed, s.in_top5, s.is_off_topic,
        array(select coalesce(h2.score, 0)::float
              from hours h left join analytics.topic_scores h2 on h2.scored_at = h.scored_at and h2.topic_slug = s.topic_slug
              order by h.scored_at) as series,
        (select min(scored_at) from hours) as series_start,
-       (select p.rank::int from analytics.topic_scores p
+       (select p.public_rank::int from analytics.topic_scores p
         where p.topic_slug = s.topic_slug and p.scored_at = latest.t - interval '6 hours') as rank_6h_ago
 from analytics.topic_scores s
 join analytics.topics t using (topic_slug)
@@ -62,11 +63,14 @@ def health():
 
 @app.get("/api/topics/top")
 def top_topics(limit: int = Query(5, ge=1, le=10)):
-    topics = rows(TOPICS + " order by s.rank, s.score desc, s.topic_slug limit :limit", limit=limit)
+    """topics = public ranking (in_top5 marks the top 5); off_topic = flagged topics, shown apart."""
+    topics = rows(TOPICS + " where not s.is_off_topic order by s.public_rank limit :limit", limit=limit)
+    off_topic = rows(TOPICS + " where s.is_off_topic order by s.score desc, s.topic_slug limit 3")
     stats = rows("""select (select count(*) from analytics.rising_items) as items_24h,
                            (select count(distinct source) from analytics.rising_items) as sources,
                            (select count(*) from analytics.topics) as topics""")[0]
-    return {"updated_at": updated_at(), "stats": stats, "topics": [topic_view(r) for r in topics]}
+    return {"updated_at": updated_at(), "stats": stats, "topics": [topic_view(r) for r in topics],
+            "off_topic": [topic_view(r) for r in off_topic]}
 
 
 @app.get("/api/topics/{slug}")

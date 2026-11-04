@@ -30,7 +30,7 @@ Step-by-step guide with copy-paste templates and the source catalog: [adding-sou
 2. **Response models:** pydantic classes with only the fields you use. Validation fails loudly if the API changes shape.
 3. **One `_get()` per connector**, decorated with `@retry_http` (from `common.py`: retries 429/5xx/network errors with backoff, never other 4xx). It must save the body: `s.add(RawResponse(source=SOURCE, endpoint=..., payload=data))`.
 4. **Secrets never in URLs.** Put them in headers or POST bodies. URLs end up in logs and error messages (httpx logs every request URL).
-5. **A job function** (`collect()` or similar) that takes an optional `httpx.Client` (tests inject a fake) and wraps its work in `with connector_run(SOURCE, "<job>") as (s, run):`, which records status, errors and counts.
+5. **A job function** (`collect()` or similar) that takes an optional `httpx.Client` (tests inject a fake) and wraps its work in `with connector_run(SOURCE, "<job>") as (s, run):`, which records status, errors and counts. Statuses: `running` → `ok` / `partial` / `error` / `waiting` (nothing to fetch yet); `aborted` = the worker restarted mid-run (set on the next worker start).
 6. **Write with `upsert_items()` / `upsert_signals()`** from `common.py`. Use a **bucketed** `captured_at` (`this_hour()` or a date) so re-runs overwrite instead of duplicating. `s.commit()` after each page.
 7. **Config:** keys from env in `config.py`; add them to `.env.example` and the `worker` environment in `docker-compose.yml`.
 8. **Schedule** in `scheduler.py`, gated on its keys being present.

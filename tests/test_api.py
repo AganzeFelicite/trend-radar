@@ -16,15 +16,16 @@ def marts():
             create schema analytics;
             create table analytics.topics as
               select * from (values ('preload', 'Pre-load', 'curated'), ('map', 'Map', 'curated'),
-                                    ('quiet', 'Quiet', 'curated')) v(topic_slug, topic_name, origin);
+                                    ('quiet', 'Quiet', 'curated'), ('meme', 'Meme', 'ai')) v(topic_slug, topic_name, origin);
             create table analytics.topic_scores as
               select * from (values
-                ('2026-11-03 23:00+00'::timestamptz, 'map', 10.0, 3, 0.02, null::float, 1.0, 5, 5, 1, false, false, false),
-                ('2026-11-04 04:00+00', 'preload', 100.0, 1, 0.20, null, 1.0, 50, 40, 3, false, false, false),
-                ('2026-11-04 05:00+00', 'preload', 80.0, 1, 0.16, 0.10, 1.6, 45, 38, 3, false, true, false),
-                ('2026-11-04 05:00+00', 'map', 30.0, 2, 0.06, null, 1.0, 12, 10, 2, true, false, false))
-              v(scored_at, topic_slug, score, rank, attention, prev_attention, growth, items, channels, sources,
-                is_new, is_spiking, is_confirmed);
+                ('2026-11-03 23:00+00'::timestamptz, 'map', 10.0, 3, 0.02, null::float, 1.0, 5, 5, 1, false, false, false, false, false),
+                ('2026-11-04 04:00+00', 'preload', 100.0, 1, 0.20, null, 1.0, 50, 40, 3, false, false, false, true, false),
+                ('2026-11-04 05:00+00', 'preload', 80.0, 1, 0.16, 0.10, 1.6, 45, 38, 3, false, true, false, true, false),
+                ('2026-11-04 05:00+00', 'map', 30.0, 2, 0.06, null, 1.0, 12, 10, 1, true, false, false, false, false),
+                ('2026-11-04 05:00+00', 'meme', 90.0, null, 0.30, null, 1.0, 60, 50, 1, false, false, false, false, true))
+              v(scored_at, topic_slug, score, public_rank, attention, prev_attention, growth, items, channels, sources,
+                is_new, is_spiking, is_confirmed, in_top5, is_off_topic);
             create table analytics.rising_items as
               select * from (values
                 ('youtube', 'v1', 'Pre-load guide', 'https://y/v1', 'Small', 50000, 2000.0, 2000, 25000.0, '{preload}'::text[], now()),
@@ -51,7 +52,9 @@ def test_top_topics_topic_page_and_rising_videos():
     assert (preload["name"], preload["score"], preload["growth"], preload["is_spiking"]) == ("Pre-load", 80, 1.6, True)
     assert preload["series"] == [0, 100, 80] and map_["series"] == [10, 0, 30]  # hours with no activity read 0
     assert (map_["rank_6h_ago"], preload["rank_6h_ago"]) == (3, None)  # map climbed 3 → 2; preload unranked then
-    assert top["stats"] == {"items_24h": 5, "sources": 3, "topics": 3}
+    assert (preload["in_top5"], map_["in_top5"]) == (True, False)  # map: one source, ranked below the top 5
+    assert [t["slug"] for t in top["off_topic"]] == ["meme"]  # flagged: out of the ranking, listed apart
+    assert top["stats"] == {"items_24h": 5, "sources": 3, "topics": 4}
     assert map_["growth"] is None  # no previous window yet: growth not measurable, not "1×"
     assert client.get("/api/topics/top?limit=11").status_code == 422
 

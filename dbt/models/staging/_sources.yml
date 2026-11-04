@@ -10,6 +10,7 @@ sources:
       - name: connector_runs
       - name: item_embeddings  # written by trend_radar/ai.py (embed)
       - name: ai_topics  # cluster registry, written by trend_radar/ai.py (discover)
+      - name: off_topic_flags  # owner's manual flags (scripts/radar.sh offtopic; /admin later)
 
       # Freshness, one entry per source on the shared tables. Twitch is left out until its category exists.
       - name: youtube_signals

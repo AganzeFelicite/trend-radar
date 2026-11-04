@@ -31,6 +31,8 @@ export function Flags({ t }: { t: Topic }) {
     t.is_new && ["New", "bg-sky-100 text-sky-900 dark:bg-sky-400/15 dark:text-sky-300"],
     t.is_confirmed && ["Confirmed", "bg-emerald-100 text-emerald-900 dark:bg-emerald-400/15 dark:text-emerald-300"],
     t.origin === "ai" && ["Found by AI", "bg-violet-100 text-violet-900 dark:bg-violet-400/15 dark:text-violet-300"],
+    t.is_off_topic && ["Off-topic buzz", "bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"],
+    t.sources === 1 && ["1 source", "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"],
   ].filter(Boolean) as [string, string][];
   return flags.map(([text, cls]) => (
     <span key={text} className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${cls}`}>

@@ -1,30 +1,42 @@
 #!/usr/bin/env bash
 # Run Trend Radar locally. Usage: scripts/radar.sh <command>
 #
-#   up        build every image from the current code and (re)start everything
-#   status    containers, last pipeline runs, current top 5
-#   refresh   run the hourly cycle now: embed titles, AI topic naming (Claude, ~1-2 cents if new clusters), dbt scores
-#   topics    what the AI decided for each cluster (review names, merges, noise, spam)
-#   keys      which .env keys are set (shows length only, never the value)
-#   test      Python tests + website typecheck, lint and build
-#   logs [s]  follow logs (default: worker; or api, web, postgres)
-#   open      open the site in Arc
-#   down      stop everything (collected data is kept)
+#   up [--awake]        build every image from the current code and (re)start everything;
+#                       --awake also keeps the Mac from sleeping (caffeinate) until `down`
+#   status              containers, awake or not, last pipeline runs, current top 5
+#   backup <folder>     pg_dump (compressed) into <folder> (or $RADAR_BACKUP_DIR); keeps the newest 7
+#   restore-test [file] restore a dump (default: newest backup) into a throwaway database, compare row counts
+#   offtopic [slug on|off]  flag a meme/non-game topic out of the top 5 (no args: list flags)
+#   refresh             run the hourly cycle now: embed titles, AI topic naming (Claude, ~1-2 cents if new clusters), dbt scores
+#   topics              what the AI decided for each cluster (review names, merges, noise, spam)
+#   keys                which .env keys are set (shows length only, never the value)
+#   test                Python tests + website typecheck, lint and build
+#   logs [s]            follow logs (default: worker; or api, web, postgres)
+#   open                open the site in Arc
+#   down                stop everything (collected data is kept) and let the Mac sleep again
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 SITE=http://localhost:3100
+AWAKE="caffeinate -dimsu"  # no display, idle, disk or system sleep (system: on power only); a closed lid still sleeps
 psql() { docker compose exec -T postgres psql -U trend_radar -d trend_radar "$@"; }
+newest_backup() { ls -1t "${RADAR_BACKUP_DIR:?pass a dump file or set RADAR_BACKUP_DIR}"/trend_radar_*.dump | head -1; }
 
 case "${1:-help}" in
   up)
     # Always all services: a worker image older than the database's migrations crash-loops on start.
     docker compose up -d --build
     docker compose ps --format 'table {{.Service}}\t{{.Status}}'
+    if [ "${2:-}" = "--awake" ]; then
+      pkill -f "$AWAKE" || true
+      nohup $AWAKE >/dev/null 2>&1 &
+      echo "Mac kept awake until scripts/radar.sh down (keep it on power, lid open)"
+    fi
     echo "Site: $SITE   API docs: http://localhost:8000/api/docs"
     ;;
   status)
     docker compose ps --format 'table {{.Service}}\t{{.Status}}'
+    pgrep -f "$AWAKE" >/dev/null && echo "Mac: kept awake" || echo "Mac: may sleep (start with: scripts/radar.sh up --awake)"
     psql -c "select source, job, status, started_at::timestamp(0) as started_utc, items_count,
                     left(coalesce(error, ''), 70) as error
              from connector_runs order by id desc limit 12"
@@ -44,7 +56,7 @@ for t in json.load(sys.stdin)["topics"]:
              from ai_topics order by status, items_count desc"
     ;;
   keys)
-    for k in $(grep -oE '^[A-Z_]+=' .env.example | tr -d =); do
+    for k in $(grep -oE '^[A-Z0-9_]+=' .env.example | tr -d =); do
       v=$(grep -E "^$k=" .env 2>/dev/null | head -1 | cut -d= -f2- | tr -d "\"'" || true)
       if [ -n "$v" ]; then printf '%-24s set (%d chars)\n' "$k" "${#v}"; else printf '%-24s missing\n' "$k"; fi
     done
@@ -53,8 +65,45 @@ for t in json.load(sys.stdin)["topics"]:
     uv run pytest -q
     (cd apps/web && npx tsc --noEmit && npm run lint && npm run build)
     ;;
+  backup)
+    dir=${2:-${RADAR_BACKUP_DIR:-}}
+    [ -n "$dir" ] || { echo "usage: scripts/radar.sh backup <folder>   (or set RADAR_BACKUP_DIR)"; exit 1; }
+    mkdir -p "$dir"
+    f="$dir/trend_radar_$(date -u +%Y-%m-%d_%H%MZ).dump"
+    # Custom format (-Fc) is compressed and restores table by table. Written to .part first: a failed dump never
+    # looks like a good backup, and never pushes a good one out of the newest 7.
+    docker compose exec -T postgres pg_dump -U trend_radar -d trend_radar -Fc -Z 6 > "$f.part" || { rm -f "$f.part"; exit 1; }
+    mv "$f.part" "$f"
+    ls -1t "$dir"/trend_radar_*.dump | tail -n +8 | while read -r old; do rm -f "$old"; done
+    ls -lh "$dir"/trend_radar_*.dump
+    ;;
+  restore-test)
+    f=${2:-$(newest_backup)}
+    echo "Restoring $f into a throwaway database (restore_check)"
+    psql -q -c "drop database if exists restore_check" -c "create database restore_check"
+    docker compose exec -T postgres pg_restore -U trend_radar -d restore_check --no-owner --exit-on-error < "$f"
+    for db in trend_radar restore_check; do  # live keeps collecting, so it may be slightly ahead of the dump
+      docker compose exec -T postgres psql -U trend_radar -d "$db" -At -F ' | ' -c "select '$db', 'items ' || count(*),
+        'signals ' || (select count(*) from signals), 'runs ' || (select count(*) from connector_runs),
+        'topics ' || (select count(*) from analytics.topics) from items"
+    done
+    psql -q -c "drop database restore_check"
+    echo "Restore OK"
+    ;;
+  offtopic)
+    if [ -z "${2:-}" ]; then psql -c "select * from off_topic_flags order by flagged_at"; exit; fi
+    [[ "$2" =~ ^[a-z0-9-]+$ ]] || { echo "not a topic slug: $2"; exit 1; }
+    case "${3:-}" in
+      on)  psql -c "insert into off_topic_flags (topic_slug) select topic_slug from analytics.topics
+                    where topic_slug = '$2' on conflict do nothing" ;;
+      off) psql -c "delete from off_topic_flags where topic_slug = '$2'" ;;
+      *) echo "usage: scripts/radar.sh offtopic <slug> on|off"; exit 1 ;;
+    esac
+    echo "Re-scoring so the site shows it (about 30 s)…"
+    docker compose exec -T worker python -c "from trend_radar import transform; transform.build()"
+    ;;
   logs) docker compose logs -f --tail 50 "${2:-worker}" ;;
   open) open -a Arc "$SITE" ;;
-  down) docker compose down ;;
-  *) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//' ;;
+  down) docker compose down; pkill -f "$AWAKE" || true ;;
+  *) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//' ;;
 esac

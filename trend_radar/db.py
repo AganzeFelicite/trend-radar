@@ -125,6 +125,15 @@ class Waitlist(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class OffTopicFlag(Base):
+    """Topics the owner marked as off-topic buzz (memes, non-game). dbt keeps them out of the public ranking and
+    lists them separately. Set by hand for now (scripts/radar.sh offtopic), by /admin later (P6.1)."""
+
+    __tablename__ = "off_topic_flags"
+    topic_slug: Mapped[str] = mapped_column(String(64), primary_key=True)
+    flagged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 @contextmanager
 def connector_run(source: str, job: str):
     """Yields (session, run). Records ok/error and finish time no matter how the job ends."""

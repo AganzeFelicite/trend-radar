@@ -86,6 +86,15 @@ The site can show "Pre-load · 100 · 13.6% of the conversation · ×1.8 vs yest
 A big topic that's growing wins; a big steady topic still ranks; a small topic needs real growth to climb.
 `rank` = position within that hour. The latest ranking is `where scored_at = max(scored_at)`.
 
+**Public ranking (`public_rank`, `in_top5`; owner + advisor, Nov 4).** What the site, digest and alerts show:
+- **Top 5 trust rule:** the top 5 are the 5 highest-momentum topics with activity on at least
+  `var('top5_min_sources')` sources (default 2; set 1 to turn the rule off). One platform's in-joke can't take #1.
+  A single-source topic still ranks, from #6 down ("Also moving" on the home page).
+- **Off-topic buzz:** topics in `off_topic_flags` (memes, non-game) get no `public_rank` and are listed apart.
+  Flag with `scripts/radar.sh offtopic <slug> on|off` (re-scores immediately); /admin later (P6.1).
+- `rank_6h_ago` on the site compares public ranks. The dbt test `assert_topic_scores_valid` fails the build if the top 5
+  ever holds a flagged or single-source topic, or more than 5.
+
 ## 6. Flags
 
 | Flag | Rule | Meaning |
@@ -133,6 +142,8 @@ Owner's calls at the first AI review (Nov 4):
   Texas, Chinese Jason shorts → Jason).
 - **Memes that mention GTA 6 but are about something else (e.g. "Blue Texas before GTA 6") stay ranked**: they are what
   the GTA 6 conversation is about. Hide one by setting its `ai_topics.status` to `noise`.
+  *(Refined Nov 4 with the advisor: they stay in the data, but the top 5 needs 2+ sources, and the owner can flag one as
+  off-topic buzz; see § 5 Public ranking.)*
 
 `topics` = curated (seed) ∪ AI (`ai_topics`, status `active`). Rename, merge or hide AI topics: update the row
 (P6.1 admin page later).

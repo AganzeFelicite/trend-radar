@@ -20,6 +20,8 @@ export type Topic = {
   is_new?: boolean;
   is_spiking?: boolean;
   is_confirmed?: boolean;
+  in_top5?: boolean; // the public top 5: unflagged topics with activity on 2+ sources
+  is_off_topic?: boolean; // owner-flagged meme / non-game topic: no rank, listed apart
   series: number[]; // score per hour, oldest first
   series_start?: string;
 };
@@ -63,6 +65,6 @@ async function get<T>(path: string): Promise<T | null> {
 
 export type Stats = { items_24h: number; sources: number; topics: number };
 export const getTopTopics = () =>
-  get<{ updated_at: string | null; stats: Stats; topics: Topic[] }>("/api/topics/top");
+  get<{ updated_at: string | null; stats: Stats; topics: Topic[]; off_topic: Topic[] }>("/api/topics/top?limit=10");
 export const getTopic = (slug: string) => get<TopicPage>(`/api/topics/${encodeURIComponent(slug)}`);
 export const getRisingVideos = () => get<{ updated_at: string | null; videos: Video[] }>("/api/videos/rising");

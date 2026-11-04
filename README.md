@@ -36,7 +36,11 @@ Day to day, everything goes through one script (run it with no arguments for hel
 
 ```sh
 scripts/radar.sh up        # build all images from the current code and start: site http://localhost:3100
-scripts/radar.sh status    # containers, last pipeline runs, current top 5
+scripts/radar.sh up --awake  # same, and keep the Mac from sleeping until `down` (on power, lid open)
+scripts/radar.sh status    # containers, awake or not, last pipeline runs, current top 5
+scripts/radar.sh backup ~/Backups/trend-radar   # pg_dump to a folder outside Docker, keeps the newest 7
+scripts/radar.sh restore-test   # restore the newest backup into a throwaway DB (needs RADAR_BACKUP_DIR) or pass a file
+scripts/radar.sh offtopic blue-texas on   # keep a meme/non-game topic out of the top 5 (off: undo; no args: list)
 scripts/radar.sh refresh   # run the hourly cycle now (embeddings, AI naming, dbt scores)
 scripts/radar.sh topics    # review the AI's topic decisions
 scripts/radar.sh keys      # which .env keys are set (length only)
@@ -52,4 +56,5 @@ docker compose exec postgres psql -U trend_radar -c \
   "select job, status, items_count, quota_used, started_at from connector_runs order by id desc limit 10"
 ```
 
-Deploy and restore instructions will be added once the server exists.
+Until R2 backups exist (P2.4), back up by hand (`backup`) at least daily and check one with `restore-test`.
+Deploy instructions will be added once the server exists.

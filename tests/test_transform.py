@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from trend_radar import transform
 from trend_radar.connectors.common import upsert_items, upsert_signals
-from trend_radar.db import ConnectorRun, engine
+from trend_radar.db import ConnectorRun, OffTopicFlag, engine
 
 
 def at(day, hour):
@@ -102,6 +102,10 @@ def test_scores_rank_size_times_growth_flag_spikes_and_new_topics_and_drop_spam(
                            for i, (_, _, vs) in videos.items() for v, t in zip(vs, hrs)]
                        + [dict(source="youtube", item_id="s", metric_name="comments", metric_value=1, captured_at=hrs[-1])])
         s.add(ConnectorRun(source="youtube", job="snapshot", status="ok", started_at=H - timedelta(hours=50)))
+        # A headline makes preload a 2-source topic (outside the burst window, so map's spike is unchanged).
+        upsert_items(s, [dict(source="rss", item_id="r1", item_type="article", title="GTA 6 preload date confirmed",
+                              url="https://n/r1", channel_title="IGN", published_at=H - timedelta(hours=12))])
+        s.add(OffTopicFlag(topic_slug="trailer-3"))  # owner: off-topic buzz
         s.commit()
 
     transform.build()
@@ -119,6 +123,11 @@ def test_scores_rank_size_times_growth_flag_spikes_and_new_topics_and_drop_spam(
     assert abs(p.growth - 1) < 0.05 and not p.is_spiking            # same share both days
     assert latest["trailer-3"].is_new and not latest["preload"].is_new
     assert map_3h_ago == 1  # that hour's prev window opened before collection started: no growth claimed
+    # Public top 5: map has the most momentum but one source; preload (YouTube + news) takes public #1.
+    assert (p.sources, p.in_top5, p.public_rank) == (2, True, 1)
+    assert (m.sources, m.in_top5, m.public_rank) == (1, False, 2)
+    t3 = latest["trailer-3"]
+    assert t3.is_off_topic and not t3.in_top5 and t3.public_rank is None
 
 
 def test_semantic_matching_fills_alias_gaps_with_curated_and_ai_topics():

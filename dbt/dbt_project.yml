@@ -26,3 +26,6 @@ vars:
   # is at least this, plus other topics within the tie margin of it (facets of one story).
   semantic_min_similarity: 0.72
   semantic_tie_margin: 0.03
+  # Public top 5 (owner + advisor, Nov 4): a topic needs activity on at least this many sources to be shown in the
+  # top 5, so one platform's in-joke can't take #1. Others still rank from #6 down. 1 turns the rule off.
+  top5_min_sources: 2

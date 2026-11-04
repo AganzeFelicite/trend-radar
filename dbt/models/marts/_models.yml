@@ -18,7 +18,9 @@ models:
   - name: phrase_candidates
     description: Phrases trending in the last 24h that no alias covers. Review by uncovered_items desc, add good ones to seeds/topic_aliases.csv.
   - name: topic_scores
-    description: Hourly momentum per topic (last 7 days). Latest ranking = rows where scored_at = max(scored_at). See docs/SCORING.md.
+    description: >
+      Hourly momentum per topic (last 7 days). Latest ranking = rows where scored_at = max(scored_at).
+      rank = raw momentum rank; public_rank = site order (top 5 rule, off-topic flags). See docs/SCORING.md.
     columns:
       - name: topic_slug
         data_tests:

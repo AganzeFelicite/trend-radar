@@ -9,6 +9,9 @@
 --   momentum = attention x growth (growth capped to 0.25..4): size x speed.
 --   score = momentum on a 0-100 scale, Google-Trends style: 100 = the strongest topic-hour of the last 7 days that
 --   had 5+ items (one lone old article = 100% share of an empty hour must not set the scale); capped at 100.
+--   rank = momentum rank over every topic. public_rank = what the site shows: the top 5 are the 5 best topics with
+--   activity on var('top5_min_sources')+ sources (in_top5); everything else follows by momentum. Topics the owner
+--   flagged off-topic (off_topic_flags) get no public_rank; the site lists them apart as "Off-topic buzz".
 {% set w = var('momentum_window_hours') %}
 {% set b = var('burst_window_hours') %}
 with collecting as (  -- when each source started: windows before this hold only back-dated first readings
@@ -109,8 +112,9 @@ scored as (
         case when prev_attention is null then 1.0
              else least(greatest((attention_lfl + 0.005) / (prev_attention + 0.005), 0.25), 4.0) end as growth
     from topic
-)
+),
 
+final as (
 select
     scored_at,
     topic_slug,
@@ -125,5 +129,23 @@ select
     items, items_prev, items_burst, channels, sources, rising_sources,
     has_prev and items_prev = 0 and items >= 3 as is_new,
     burst_attention >= 0.01 and burst_attention >= 2 * attention and items_burst >= 3 and channels_burst >= 2 as is_spiking,
-    rising_sources >= 2 as is_confirmed
+    rising_sources >= 2 as is_confirmed,
+    topic_slug in (select topic_slug from {{ source('warehouse', 'off_topic_flags') }}) as is_off_topic
 from scored
+),
+
+top5 as (
+    select
+        *,
+        not is_off_topic and sources >= {{ var('top5_min_sources') }}
+          and row_number() over (partition by scored_at, not is_off_topic and sources >= {{ var('top5_min_sources') }}
+                                 order by momentum desc, topic_slug) <= 5 as in_top5
+    from final
+)
+
+select
+    *,
+    case when not is_off_topic then
+        row_number() over (partition by scored_at, is_off_topic order by in_top5 desc, momentum desc, topic_slug)
+    end as public_rank
+from top5

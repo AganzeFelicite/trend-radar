@@ -8,6 +8,15 @@ Each task lists only its specific checks plus `Verified:` (how it was checked).
 
 Status key: `[ ]` todo · `[x]` done and verified · `[~]` blocked (reason given)
 
+## Launch priority order (owner + advisor, Nov 4)
+Launch Nov 15–17. Urgent fixes first (P2.10–P2.12, P3.4), then:
+1. **Server live with Ansible:** P1.1–P1.3, history moved with `pg_dump`/restore. Terraform stays after launch (P8.1).
+2. **Backups to R2:** P2.4.
+3. **CI/CD + monitoring:** P2.5, P2.6.
+4. **Finish Phase 4:** P4.5, P4.6 (before collecting real emails).
+5. **Daily Brief** P9.1 → digest (P9.4 = P5.1) + Telegram alerts (P5.2) built on it.
+6. **Content card + AI channel MVP:** P9.2–P9.7. Anything not ready by Nov 15 moves to release week; the site launch does not wait for the channel.
+
 ---
 
 ## Phase 0: Accounts and access (Nov 3)
@@ -44,6 +53,8 @@ Done when: YouTube snapshots land hourly in Postgres on the server.
   - [ ] Postgres not reachable from outside
   - [ ] Second run reports 0 changes
   - [ ] `ansible-lint` passes
+  - [ ] `.env` from Ansible Vault; **no dev password defaults** in `docker-compose.yml` (`POSTGRES_PASSWORD` falls back to one in 4 places today)
+  - [ ] History moved from the Mac: `pg_dump` → restore on the server, row counts match
   - Verified:
 - [~] **P1.3** HTTPS via Caddy. **Blocked: P1.1.**
   - [ ] `https://<domain>` loads
@@ -75,10 +86,10 @@ Done when: three sources land in `signals`, a backup restores, and a push to `ma
 - [x] **P2.2** Wikipedia connector (daily, User-Agent; article→topic mapping moves to P3.2 when topics exist)
   - [x] Daily pageviews in `signals`
   - Verified: live API run Nov 3: 6/6 articles found, 30 days each (GTA VI avg 16,835/day, peak 26,444); worker in Docker ran it on start → `connector_runs` status ok, 6 items
-- [ ] **P2.3** YouTube `channels.list` daily job
+- [x] **P2.3** YouTube `channels.list` daily job
   - [x] Subscriber counts stored as `channel` items + `subscribers` signals; hidden counts skipped; snapshot ignores channels (test)
-  - [ ] **Real run**: first daily run 06:15 UTC Nov 4
-  - Verified: `uv run pytest tests/test_youtube.py` → 6 passed
+  - [x] **Real run**: runs daily 06:15 UTC and on worker start; 7 ok runs by Nov 4 08:00 (305 channels, 45 units)
+  - Verified: `uv run pytest tests/test_youtube.py` → 6 passed; `connector_runs` youtube/channels status `ok` ×7 (status report Nov 4)
 - [ ] **P2.4** Backups: nightly `pg_dump` → R2
   - [ ] File in R2
   - [ ] Restored into a test DB
@@ -105,6 +116,19 @@ Done when: three sources land in `signals`, a backup restores, and a push to `ma
   - [ ] Reddit: when API access is approved (can be built against mocks first)
   - [ ] Google Trends API: when alpha access is granted
   - Verified:
+- [x] **P2.10** Stop losing hourly data on the Mac (urgent fix A1, Nov 4)
+  - [x] `misfire_grace_time` 3600 + `coalesce` for every job (`scheduler.JOB_DEFAULTS`)
+  - [x] `scripts/radar.sh up --awake` keeps the Mac awake (`caffeinate -dimsu`); `down` releases it
+  - [x] A job delayed past 10 minutes still runs
+  - Verified: `tests/test_scheduler.py`: a job 21 min late is skipped with the old 600 s grace and runs with `JOB_DEFAULTS` (also at 59 min). `up --awake` → `pmset -g assertions` shows caffeinate holding PreventSystemSleep, PreventUserIdleSystemSleep, PreventUserIdleDisplaySleep. A closed lid (or battery) still sleeps a laptop.
+- [x] **P2.11** Emergency local backup until R2 exists (urgent fix A2, Nov 4)
+  - [x] `scripts/radar.sh backup <folder>` (or `RADAR_BACKUP_DIR`): `pg_dump -Fc -Z 6`, UTC date and time in the name, newest 7 kept, written as `.part` until complete
+  - [x] A dump file exists and restores into a throwaway database (`scripts/radar.sh restore-test`)
+  - Verified: Nov 4 08:19, 15 MB dump; `restore-test` → `restore_check` items 1,638 · signals 33,120 · runs 175 · topics 33 vs live 1,639 · 33,121 · 176 · 33 (live kept collecting); throwaway database dropped. Rotation: 8 older files + 2 new → 7 kept, oldest removed.
+- [x] **P2.12** Close stale runs on worker start (urgent fix A3, Nov 4)
+  - [x] `running` rows started before the worker start → `aborted` (`maintenance.abort_stale_runs`)
+  - [x] Row id 91 becomes `aborted`
+  - Verified: `tests/test_maintenance.py` (only `running`, only before the start). Real restart Nov 4 08:17: log "marked 1 run(s) … as aborted"; row 91 `aborted`, `finished_at` set, error "worker restarted mid-run".
 
 ## Phase 3: The brain (Nov 6–8)
 Done when: hourly top topics look sensible to a human, with no obvious duplicates or spam.
@@ -120,10 +144,16 @@ Done when: hourly top topics look sensible to a human, with no obvious duplicate
   - [x] `phrase_candidates` review list (3+ authors, ranked by items in no topic yet); first curation pass added 2 topics + 15 aliases (coverage 38% → 42%)
   - Verified: real data: 27 topics, 671 topic-item links, top topics Pre-load 128 · File size 124 · Xbox 99; dbt 26/26 in the worker; pytest 22 passed
   - Verified:
-- [x] **P3.3** Momentum scoring + flags → `topic_scores`; spam/reupload filters; `docs/SCORING.md`
+- [ ] **P3.3** Momentum scoring + flags → `topic_scores`; spam/reupload filters; `docs/SCORING.md` *(unticked Nov 4: built and verified, waiting on the owner's top-20 approval)*
   - [ ] Owner reviews top 20 and approves (or triggers embeddings upgrade)
     - Nov 4: owner triggered the AI upgrade and asked for a defined scale. Built: `ai.embed` (multilingual MiniLM, pgvector), `ai.discover` (HDBSCAN + `ai_topics` registry + Claude Haiku naming), dbt `int_topic_centroids`, `int_semantic_matches`, `topics` = curated ∪ AI, `ai_spam` flag, score 0–100. Waiting on `ANTHROPIC_API_KEY` (8 clusters queued), then the top-20 review again.
   - Verified: dbt models `int_item_quality` (spam), `int_item_activity` (item × hour, event time), `topic_scores` (topic × hour, 7 days), `rising_items`; seed `source_weights`. Real data Nov 4 01:46: 35/35 dbt nodes, 30 items flagged (23 low-engagement videos, 7 reposts), top 5 = preload, xbox, release-date, file-size, map; growth = 1 until 48h after each source started (like-for-like guard). pytest `test_scores_rank_size_times_growth_flag_spikes_and_new_topics_and_drop_spam` (ranking, capped growth, SPIKING, NEW, spam drop, coverage guard); 23 passed.
+
+- [x] **P3.4** Top-5 trust rule + off-topic buzz (urgent fix A4, Nov 4)
+  - [x] dbt var `top5_min_sources` (default 2, 1 = off): the public top 5 needs activity on 2+ sources → `topic_scores.in_top5`, `public_rank`; single-source topics rank from #6 ("Also moving")
+  - [x] Off-topic flag: `off_topic_flags` (migration d9f3a7b1c2e4), set with `scripts/radar.sh offtopic <slug> on|off` until /admin (P6.1); flagged topics get no public rank and show in a small "Off-topic buzz" section
+  - [x] Blue Texas (single source) no longer in the public top 5; still in the full ranking or the off-topic section
+  - Verified: pytest scoring test on the real dbt project (a 2-source topic takes public #1 over a higher-momentum 1-source topic; a flagged topic has no public rank) + API test; dbt test `assert_topic_scores_valid` fails the build on any violation. Real data Nov 4 08:18: public top 5 = Pre-load, Xbox, File size, Map, Release date (3 sources each); Blue Texas #6 under "Also moving". Flagged for the check → "Off-topic buzz" only; then unflagged (owner's call). Screenshots 1280 light, 390 dark.
 
 ## Phase 4: The product (Nov 9–11)
 Done when: a stranger on a phone understands the site, sees today's top topics, and joins the waitlist in under a minute.
@@ -147,13 +177,13 @@ Done when: a stranger on a phone understands the site, sees today's top topics, 
 ## Phase 5: Delivery (Nov 12)
 Done when: a test spike posts to the Telegram channel within minutes, the morning digest arrives, and the daily card is ready.
 
-- [ ] **P5.1** Daily digest to waitlist (Resend, signed unsubscribe)
+- [ ] **P5.1** Daily digest to waitlist (Resend, signed unsubscribe) → built as **P9.4** on the Daily Brief (P9.1)
   - [ ] Received; unsubscribe works
   - Verified:
-- [ ] **P5.2** Spike alerts → public Telegram channel; dedupe on `(topic_id, date)`
+- [ ] **P5.2** Spike alerts → public Telegram channel; dedupe on `(topic_id, date)`; daily post from the approved brief (P9.1–P9.3)
   - [ ] Simulated spike posts exactly once
   - Verified:
-- [ ] **P5.3** Admin: 1080×1920 top-5 card (`next/og`) + on-camera script
+- [ ] **P5.3** Admin: 1080×1920 top-5 card (`next/og`) + on-camera script → the data cards of **P9.5**
   - [ ] Card downloaded
   - Verified:
 
@@ -188,3 +218,50 @@ Done when: the site is public and stable through release day.
 - [ ] **P8.4** New sources behind flags: Bluesky, RSS, Threads, X, Reddit; YouTube comment text; Twitch chat (Nov 3: owner chose YouTube + Twitch only for launch)
 - [ ] **P8.5** "Make this now" list
 - [ ] **P8.6** Upgrade triggers documented (Redis, partitioning, Dagster, bigger VPS)
+
+## Phase 9: AI channel and content engine (owner + advisor, Nov 4)
+Goal: one verified data run per day powers everything: the subscriber email, Telegram, the website "Today" page, and short
+videos hosted by an obviously-AI character, **RADAR** (working name, owner to confirm). The channel grows an audience
+sponsors pay to reach; viewers discover the site and subscribe. Priority: P9.1 + P9.4 before launch (priority 5);
+P9.2–P9.7 by Nov 15 or release week (priority 6).
+
+Done when: an approved Daily Brief produces, the same morning, a test digest email, a Telegram post, the website "Today"
+text and at least one RADAR video in English, all approved by the owner, all facts traceable to the brief.
+
+**Non-negotiable rules**
+- **Facts only from data.** The writer gets the Daily Brief and may not add facts, numbers, topics or claims not in it. Every number is inserted from the brief by code, never generated by the model.
+- **Human approval.** Nothing is sent or published without the owner's explicit approval in /admin.
+- **Clearly AI.** RADAR is a stylised, obviously-AI host, never a realistic fake human. Bios say "AI anchor powered by real-time GTA 6 trend data." The owner switches on platform AI labels when posting (YouTube altered/synthetic disclosure; TikTok AI-generated label).
+- **Originality (YouTube "inauthentic content" policy).** Every video has our own data (rankings, scores, charts, a "make this now" pick) and one line of human commentary the owner writes or edits. Rotate formats; never reuse identical titles or thumbnails.
+- **No third-party media in videos.** No creator clips or thumbnails, no Rockstar/GTA logos, artwork, characters or music. Visuals are our own data graphics (later the owner's own gameplay, if Rockstar's policy allows).
+- **Email law and consent.** Double opt-in, unsubscribe link in every email, physical mailing address in the footer, clear sender identity.
+- **Costs capped.** AI writing and avatar rendering each have a monthly cap in config; jobs stop and alert the owner when reached.
+
+- [ ] **P9.1** Daily Brief builder (no AI): daily job after the morning dbt build → one JSON per day in `daily_briefs` (date, version, json, status draft/approved/published). Contents: top 5 (name, score, rank change, sources, item counts), biggest riser, "make this now" pick (high talk/watch momentum, few videos; empty until growth data exists), 3 breakout videos (title, channel, link: email/site only, never in videos), off-topic buzz (optional), data window and freshness notes
+  - [ ] JSON schema defined and validated with pydantic
+  - [ ] Brief for today generated from real data and reviewed by the owner
+  - Verified:
+- [ ] **P9.2** Writer (Claude API) with grounding guard: from the brief, (a) email copy, (b) 2–3 video scripts in different formats, (c) Telegram post, (d) website "Today" text. Every number is a placeholder (`{{topic1.score}}`) filled by code; a validator rejects any output naming a topic, number or name not in the brief, then retries or flags it
+  - [ ] Validator test: an output with an invented number is rejected
+  - [ ] Monthly cost cap enforced
+  - Verified:
+- [ ] **P9.3** Admin approval page: today's brief and all drafts side by side; edit text, add the one-line human commentary per video, approve or reject each item
+  - [ ] Nothing can be sent or rendered unless status = approved (enforced server-side)
+  - Verified:
+- [ ] **P9.4** Subscriber email (Resend): double opt-in for waitlist/subscribers, signed unsubscribe links, physical address in the footer (config); daily digest rendered with React Email from the approved brief; opens/clicks tracked (= P5.1)
+  - [ ] Opt-in confirmation email works end to end
+  - [ ] Unsubscribe works and is respected immediately
+  - [ ] Test send to the owner only before any real send
+  - Verified:
+- [ ] **P9.5** RADAR video pipeline: formats rotate (Daily Radar 60 s top 3 · Make This Now · Myth or Real? · Weekly Recap on Sundays); our own 1080×1920 data cards and animated charts rendered from the brief; AI avatar behind a small adapter interface. **Ask the owner which provider before integrating** (compare 2–3 on price per minute, API, stylised/non-realistic avatars, languages, commercial terms). Output: MP4s + caption, title, hashtags and an "AI-generated" reminder, downloadable from /admin; posting is manual
+  - [ ] One Daily Radar video rendered end to end from an approved brief
+  - [ ] No third-party media in any frame (checked)
+  - [ ] Title and thumbnail differ from the previous 7 videos
+  - Verified:
+- [ ] **P9.6** Multi-language (after English works): English + 2 languages chosen by the owner; translate approved scripts (AI, owner spot-checks); avatar in each language if the provider supports it
+  - [ ] One approved brief produces videos in 3 languages
+  - Verified:
+- [ ] **P9.7** Channel kit + tracking: channel name options, bio with AI disclosure, profile/banner in our own design, pinned "What is RADAR?" script, public media-kit page (audience numbers later). Tracking table per published video (platform, format, topic, publish time, views at 24h/7d; manual first, YouTube Analytics API later) + weekly summary of best formats/topics
+  - [ ] Channel kit delivered for the owner's review
+  - [ ] Tracking table + weekly summary working with sample data
+  - Verified:

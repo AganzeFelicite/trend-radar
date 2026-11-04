@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { FeaturedTopic, Radar, Skeleton, TopicRow, Updated, VideoCard, card, fmt, label } from "@/components/ui";
 import { WaitlistForm } from "@/components/waitlist-form";
-import { getRisingVideos, getTopic, getTopTopics } from "@/lib/api";
+import { getRisingVideos, getTopic, getTopTopics, type Topic } from "@/lib/api";
 
 async function LiveStats() {
   const data = await getTopTopics();
@@ -26,13 +26,23 @@ async function LiveStats() {
 
 async function HeroRadar() {
   const data = await getTopTopics();
-  return <Radar topics={data?.topics ?? []} className="w-full" />;
+  return <Radar topics={data?.topics.filter((t) => t.in_top5) ?? []} className="w-full" />;
+}
+
+function TopicList({ topics }: { topics: Topic[] }) {
+  return (
+    <div className={`${card} divide-y divide-neutral-200 overflow-hidden dark:divide-neutral-800`}>
+      {topics.map((t) => <TopicRow key={t.slug} t={t} />)}
+    </div>
+  );
 }
 
 async function TopTopics() {
   const data = await getTopTopics();
-  if (!data?.topics.length) return <p className="text-neutral-500">No scores yet. Check back in an hour.</p>;
-  const [first, ...rest] = data.topics;
+  const top = data?.topics.filter((t) => t.in_top5) ?? [];
+  if (!top.length) return <p className="text-neutral-500">No scores yet. Check back in an hour.</p>;
+  const [first, ...rest] = top;
+  const more = data!.topics.filter((t) => !t.in_top5).slice(0, 5);
   const detail = await getTopic(first.slug);
   const v = detail?.videos[0], p = detail?.posts[0];
   const evidence = v ? { text: v.title, by: `${v.channel_title} · ${fmt(v.views_24h)} views in 24h` }
@@ -40,10 +50,29 @@ async function TopTopics() {
   return (
     <div className="space-y-3">
       <FeaturedTopic t={first} evidence={evidence} />
-      <div className={`${card} divide-y divide-neutral-200 overflow-hidden dark:divide-neutral-800`}>
-        {rest.map((t) => <TopicRow key={t.slug} t={t} />)}
-      </div>
+      {rest.length > 0 && <TopicList topics={rest} />}
+      {more.length > 0 && <><h3 className={`${label} pt-5`}>Also moving</h3><TopicList topics={more} /></>}
     </div>
+  );
+}
+
+async function OffTopic() {
+  const data = await getTopTopics();
+  if (!data?.off_topic.length) return null;
+  return (
+    <section className="space-y-2">
+      <h2 className={label}>Off-topic buzz</h2>
+      <p className="text-sm text-neutral-500">Popular with GTA 6 fans, but not about the game. Kept out of the ranking.</p>
+      <ul className="flex flex-wrap gap-2">
+        {data.off_topic.map((t) => (
+          <li key={t.slug}>
+            <Link href={`/topics/${t.slug}`} className="inline-flex items-center gap-2 rounded-full border border-neutral-300 px-3 py-1 text-sm hover:border-emerald-500 dark:border-neutral-700">
+              {t.name} <span className="font-mono text-xs text-neutral-400">{Math.round(t.score)}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -97,11 +126,17 @@ export default function Home() {
             <p><b>Score out of 100.</b> 100 is the strongest moment any topic had in the past 7 days.</p>
             <p>It multiplies how much of the GTA 6 conversation a topic holds (its share of views, likes and headlines
               on YouTube, Bluesky, Twitch and gaming news) by how fast that share is growing compared with the day before.</p>
+            <p><b>Top 5 needs 2+ sources.</b> A topic must be active on at least two of YouTube, Bluesky, Twitch and the
+              news to make the top 5, so one platform&apos;s in-joke can&apos;t take #1. It still ranks below.</p>
             <p><b>▲▼ 6h</b> rank change in the last 6 hours · <b>Spiking</b> accelerating in the last 3 hours ·{" "}
               <b>Found by AI</b> a topic our AI spotted that no keyword list covered.</p>
           </div>
         </details>
       </section>
+
+      <Suspense fallback={null}>
+        <OffTopic />
+      </Suspense>
 
       <section className="relative overflow-hidden rounded-3xl bg-emerald-600 p-6 text-white sm:p-8 dark:bg-emerald-700">
         <div className="pointer-events-none absolute -right-20 -top-20 w-72 opacity-40 [&_*]:border-white/50">
