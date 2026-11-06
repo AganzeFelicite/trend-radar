@@ -86,7 +86,7 @@ PACKAGE_BLOCKED_TOPICS = {"mark-tilbury-savings"}  # owner + advisor, Nov 4
 PACKAGE_BLOCKED_WORDS = r"saving|invest|money|crypto|stock|financ|loan|health|medic|doctor|diet|legal|lawyer|lawsuit"
 
 # --- Video packages (P9.5; Nov 4 review of the first sample) ---
-HOST_NAME = "Coach Dub"  # the Video Studio's character who presents; "Trend Radar" is the data brand
+HOST_NAME = "Patch"  # the Video Studio's character who presents; "Trend Radar" is the data brand
 PACKAGE_TARGET_SECONDS = 40
 PACKAGE_MAX_SEGMENTS = 3  # plus hook and close
 TOPIC_OVERLAP_MERGE = 0.5  # two topics sharing more than this share of their trending items become one segment
