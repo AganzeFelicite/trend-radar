@@ -119,6 +119,7 @@ for n in b["notes"]: print("  ! " + n)'
     echo "Studio job $id ($(jq -r '"\(.input_kind), \(.target_seconds) s, \(.facts) facts"' <<<"$r"))"
     cd "$studio/api"
     export PYTHONUNBUFFERED=1
+    set -a; [ -f ../.env ] && . ../.env; set +a  # the Studio's keys (Pixabay) for the steps that run on this Mac
     for step in research script safety voice clip broll edit; do
       echo "== $step ($(date +%H:%M))"
       if [ "$step" = safety ]; then
