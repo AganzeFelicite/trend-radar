@@ -53,7 +53,8 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(200, json.dumps(job).encode(), "application/json")
         elif path == "/package":
             try:
-                self.reply(200, urllib.request.urlopen("http://localhost:8000/api/admin/studio-prompt", timeout=15).read())
+                # the JSON package: the Studio keeps every field (the Markdown parser drops the score time)
+                self.reply(200, urllib.request.urlopen("http://localhost:8000/api/admin/content-package", timeout=15).read())
             except OSError as e:
                 self.reply(502, f"Trend Radar API not reachable ({e}). Start it: scripts/radar.sh up".encode())
         elif path == "/video" and job["video"]:
