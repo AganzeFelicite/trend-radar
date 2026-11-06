@@ -222,7 +222,7 @@ Done when: the site is public and stable through release day.
 
 ## Phase 9: AI channel and content engine (owner + advisor, Nov 4; revised same day)
 Goal: one verified data run per day powers everything: the subscriber email, Telegram, the website "Today" page, and
-**Content Packages** for short videos presented by the Video Studio's obviously-AI character (`config.HOST_NAME`, default **Wi-Fido**; Nov 4 review). **Trend Radar** is the data brand, not the host.
+**Content Packages** for short videos presented by the Video Studio's obviously-AI character (`config.HOST_NAME`, default **Coach Dub**; Nov 4 review). **Trend Radar** is the data brand, not the host.
 **Trend Radar does not make videos.** The owner's separate "Video Studio" makes them from our packages. The channel grows
 an audience sponsors pay to reach; viewers discover the site and subscribe. Priority: P9.1 + P9.4 before launch
 (priority 5); P9.2–P9.8 by Nov 15 or release week (priority 6).
@@ -278,7 +278,7 @@ Video Studio. Everything is approved by the owner, and every fact traces to the 
     3. Riser only with ≥15 items, score ≥10, ≥3 places gained (`config.RISER_*`, applied in the brief); otherwise no riser segment.
     4. Every topic carries its 6h rank change; `movement: none` when no top topic moved, and the writer is told to say "still leading".
     5. 40 s by default (`config.PACKAGE_TARGET_SECONDS`), at most 3 segments plus hook and close.
-    6. Host = `config.HOST_NAME` ("Wi-Fido"); "RADAR" removed from code and prompts.
+    6. Host = `config.HOST_NAME` ("Coach Dub"); "RADAR" removed from code and prompts.
     7. Comments only through official APIs (YouTube `commentThreads.list`, Bluesky `getPostThread`); piracy/jailbreak/leak/cheat items removed from research (`config.RESEARCH_EXCLUDE_WORDS`).
     8. Metadata: package_id, format, language, host, target length, data-card files (not rendered yet), last 7 published titles (`published_videos`, `scripts/radar.sh published`). JSON at `GET /api/admin/content-package`.
     - Verified: `tests/test_studio.py` (merge + drop + fill, riser slot, movement none/some, riser thresholds, research exclusions, official links, metadata and scenes, sensitive topics, API with last 7 titles), `tests/test_writer.py` (movement facts, script limited to segment topics); 43 passed.
@@ -291,7 +291,7 @@ Video Studio. Everything is approved by the owner, and every fact traces to the 
 - [ ] **P9.6** Multi-language packages (after English works): each approved English package → translated packages in 2 languages the owner chooses (e.g. Spanish, Portuguese). Facts and numbers stay identical; only the text is translated. The owner spot-checks before export
   - [ ] One approved brief produces packages in 3 languages with identical facts
   - Verified:
-- [ ] **P9.7** Channel kit + tracking: channel name options, bio with AI disclosure, profile/banner in our own design, pinned "Who is Wi-Fido?" script, public media-kit page (audience numbers later). Tracking table per published video (platform, format, topic, publish time, views at 24h/7d; manual first, YouTube Analytics API later) + weekly summary of best formats/topics
+- [ ] **P9.7** Channel kit + tracking: channel name options, bio with AI disclosure, profile/banner in our own design, pinned "Who is Coach Dub?" script, public media-kit page (audience numbers later). Tracking table per published video (platform, format, topic, publish time, views at 24h/7d; manual first, YouTube Analytics API later) + weekly summary of best formats/topics
   - [ ] Channel kit delivered for the owner's review
   - [ ] Tracking table + weekly summary working with sample data *(Nov 4: `published_videos` table started for package titles; `scripts/radar.sh published`)*
   - Verified:

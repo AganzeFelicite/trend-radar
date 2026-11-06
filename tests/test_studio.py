@@ -64,12 +64,12 @@ def test_research_list_drops_piracy_and_jailbreak_items_and_finds_official_links
 def test_metadata_host_length_and_scenes():
     p = studio.package(make([topic("a", 1), topic("b", 2)]), None, 3, "draft", ["Old title"])
     assert (p.package_id, p.format, p.language, p.host, p.target_length_seconds) == (
-        "2026-11-04-daily_radar-en-v3", "daily_radar", "en", "Wi-Fido", 40)
+        "2026-11-04-daily_radar-en-v3", "daily_radar", "en", "Coach Dub", 40)
     assert [c.file for c in p.cards] == ["cards/title.png", "cards/segment-1.png", "cards/segment-2.png", "cards/end.png"]
     assert p.scenes[0].start == 0 and p.scenes[-1].end == 40 and len(p.scenes) == 4  # hook, 2 segments, close
     assert all(x.type == "verified" for x in p.facts) and p.previous_titles == ["Old title"]
     md = studio.markdown(p)
-    assert "RADAR" not in md and "| host | Wi-Fido" in md and "commentThreads.list" in md
+    assert "RADAR" not in md and "| host | Coach Dub" in md and "commentThreads.list" in md
 
 
 def test_sensitive_topics_never_reach_a_package():
@@ -87,6 +87,6 @@ def test_api_serves_the_package_with_the_last_published_titles():
 
     p = client.get("/api/admin/content-package").json()
 
-    assert len(p["previous_titles"]) == 7 and p["host"] == "Wi-Fido"
+    assert len(p["previous_titles"]) == 7 and p["host"] == "Coach Dub"
     assert p["segments"][0]["label"] == "Pre-load" and p["facts"][0]["source"].startswith("Trend Radar topic_scores · preload")
-    assert "| package_id | `2026-11-04-daily_radar-en-v1` |" in client.get("/api/admin/studio-prompt").text
+    assert f"| package_id | `{date.today()}-daily_radar-en-v1` |" in client.get("/api/admin/studio-prompt").text  # brief.build() = today
