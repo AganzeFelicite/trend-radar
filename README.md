@@ -43,6 +43,8 @@ scripts/radar.sh restore-test   # restore the newest backup into a throwaway DB 
 scripts/radar.sh brief     # build today's Daily Brief now and open it at http://localhost:3100/admin
 scripts/radar.sh studio ~/Desktop/radar.md   # the brief for your video AI: facts, what to research, scenes, rules
 scripts/radar.sh drafts    # AI-write today's drafts from the brief (Claude, a few cents; $4/month cap)
+scripts/radar.sh video     # make a video in your Video Studio from today's package ($0, runs on this Mac)
+scripts/radar.sh video-ui  # the same as a page at http://127.0.0.1:3600: paste or load, Make video, play
 scripts/radar.sh offtopic blue-texas on   # keep a meme/non-game topic out of the top 5 (off: undo; no args: list)
 scripts/radar.sh refresh   # run the hourly cycle now (embeddings, AI naming, dbt scores)
 scripts/radar.sh topics    # review the AI's topic decisions

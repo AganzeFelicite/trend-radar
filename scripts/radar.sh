@@ -13,6 +13,8 @@
 #   drafts              AI-write today's drafts from the latest brief now (Claude, a few cents; $4/month cap)
 #   studio [file]       the Video Studio brief (facts, what to research, scenes, rules) for your video AI
 #   published ["title" [platform] [url]]  log a video you posted (packages avoid the last 7 titles); no args: list
+#   video [file]        make a video in your Video Studio from today's package (or a pasted package/topic in file)
+#   video-ui            the same as a page: paste or load the package, click Make video, watch, play (Ctrl+C stops)
 #   topics              what the AI decided for each cluster (review names, merges, noise, spam)
 #   keys                which .env keys are set (shows length only, never the value)
 #   test                Python tests + website typecheck, lint and build
@@ -104,6 +106,34 @@ for n in b["notes"]: print("  ! " + n)'
         psql -v t="$2" -v p="${3:-youtube}" -v u="${4:-}"
     fi
     ;;
+  video)
+    # Trend Radar doesn't make videos: this hands the package to your Video Studio ($STUDIO_DIR) and runs its steps.
+    # $0: research and script use your Claude Code login; voice, animation and the FilmCraft edit run on this Mac.
+    # Nothing is published.
+    studio=${STUDIO_DIR:-$HOME/Desktop/thevault/dog-video-generate}
+    if [ -n "${2:-}" ]; then body=$(jq -n --rawfile s "$2" '{input: $s}')
+    else body=$(curl -sf localhost:8000/api/admin/content-package | jq '{input: tojson}'); fi
+    r=$(curl -s -X POST 127.0.0.1:8400/jobs -H 'content-type: application/json' -d "$body")
+    id=$(jq -r '.id // empty' <<<"$r" 2>/dev/null || true)
+    [ -n "$id" ] || { echo "Studio refused the input: $r"; exit 1; }
+    echo "Studio job $id ($(jq -r '"\(.input_kind), \(.target_seconds) s, \(.facts) facts"' <<<"$r"))"
+    cd "$studio/api"
+    export PYTHONUNBUFFERED=1
+    for step in research script safety voice clip broll edit; do
+      echo "== $step ($(date +%H:%M))"
+      if [ "$step" = safety ]; then
+        out=$(uv run python -m studio.safety "$id"); echo "$out"; [ "$out" = passed ] || exit 1
+      else
+        uv run python -m "studio.$step" "$id"
+      fi
+    done
+    echo "DONE $studio/storage/jobs/$id/final.mp4"
+    if [ -t 1 ]; then open "$studio/storage/jobs/$id/final.mp4"; fi
+    ;;
+  video-ui)
+    (sleep 1; open -a Arc http://127.0.0.1:3600) &
+    exec python3 scripts/video_ui.py
+    ;;
   topics)
     psql -c "select slug, name, status, merged_into, items_count as items, left(examples->>0, 60) as example
              from ai_topics order by status, items_count desc"
@@ -158,5 +188,5 @@ for n in b["notes"]: print("  ! " + n)'
   logs) docker compose logs -f --tail 50 "${2:-worker}" ;;
   open) open -a Arc "$SITE" ;;
   down) docker compose down; pkill -f "$AWAKE" || true ;;
-  *) sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *) sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//' ;;
 esac
