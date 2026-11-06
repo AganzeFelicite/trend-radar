@@ -18,7 +18,7 @@ from trend_radar.db import ConnectorRun, DailyBrief, Draft, connector_run, engin
 MAX_TOKENS = 6000
 PLACEHOLDER = re.compile(r"\{\{\s*([a-z0-9_.]+)\s*\}\}")
 # Product phrases that contain digits and carry no claim.
-FIXED_PHRASES = re.compile(r"\bgta\s?(?:6|vi)\b|\btop\s?[35]\b|\b24\s?(?:h|hours)\b|\bout of 100\b", re.I)
+FIXED_PHRASES = re.compile(r"\bgta\s?(?:6|vi)\b|\btop\s?[35]\b|\b(?:24|6)\s?(?:h|hours)\b|\bout of 100\b", re.I)
 NUMBER = re.compile(r"\d[\d.,:%x×]*")
 LIST_MARKER = re.compile(r"^\s*\d{1,2}[.)]\s", re.M)  # "1. " at the start of a line is list formatting, not a fact
 # ponytail: known-topic check only (our topic names + aliases). Arbitrary names (people, outlets) outside our topic
